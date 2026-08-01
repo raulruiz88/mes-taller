@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getRole() == 'admin';
+    }
+
+    function isProduccion() {
+      return isSignedIn() && getRole() == 'produccion';
+    }
+
+    function isCompras() {
+      return isSignedIn() && getRole() == 'compras';
+    }
+
+    function isAdminOrProduccion() {
+      return isAdmin() || isProduccion();
+    }
+
+    function isAdminOrCompras() {
+      return isAdmin() || isCompras();
+    }
+
+    // ─── users ────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLoginAt']);
+    }
+
+    // ─── purchase_orders ──────────────────────────────
+    match /purchase_orders/{ocId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── work_orders ──────────────────────────────────
+    match /work_orders/{otId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+
+      // changelog subcollection
+      match /changelog/{logId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update, delete: if false; // immutable logs
+      }
+    }
+
+    // ─── exit_slips ───────────────────────────────────
+    match /exit_slips/{slipId} {
+      allow read: if isSignedIn();
+      allow create: if isAdminOrProduccion();
+      allow update: if isAdminOrProduccion();
+      allow delete: if isAdmin();
+    }
+
+    // ─── direct_expenses ──────────────────────────────
+    match /direct_expenses/{expId} {
+      allow read: if isSignedIn();
+      allow create: if isAdminOrCompras();
+      allow update: if isAdminOrCompras();
+      allow delete: if isAdmin();
+    }
+
+    // ─── fixed_costs ──────────────────────────────────
+    match /fixed_costs/{costId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── app_settings ─────────────────────────────────
+    match /app_settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ─── suppliers ────────────────────────────────────
+    match /suppliers/{supplierId} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrCompras();
+    }
+
+    // ─── customers ────────────────────────────────────
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
