@@ -118,6 +118,75 @@ export async function updateWorkOrderStatus(
   });
 }
 
+export async function pausarWorkOrder(
+  otId: string,
+  motivoPausa: string,
+  uid: string,
+  userName: string
+): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const changeRef = doc(collection(db, COL, otId, 'changelog'));
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(otRef);
+    if (!snap.exists()) throw new Error('OT no encontrada');
+
+    const currentStatus = snap.data().status as OTStatus;
+
+    tx.update(otRef, {
+      esPausada: true,
+      statusAnterior: currentStatus,
+      motivoPausa,
+      fechaPausa: serverTimestamp(),
+      status: 'en_pausa',
+      updatedAt: serverTimestamp(),
+    });
+
+    tx.set(changeRef, {
+      timestamp: serverTimestamp(),
+      usuarioUid: uid,
+      usuarioNombre: userName,
+      campo: 'status',
+      valorAnterior: currentStatus,
+      valorNuevo: `en_pausa (Motivo: ${motivoPausa})`,
+      accion: 'status_change',
+    } as Omit<OTChangeLog, 'id'>);
+  });
+}
+
+export async function reanudarWorkOrder(
+  otId: string,
+  uid: string,
+  userName: string
+): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const changeRef = doc(collection(db, COL, otId, 'changelog'));
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(otRef);
+    if (!snap.exists()) throw new Error('OT no encontrada');
+
+    const data = snap.data();
+    const restoredStatus = (data.statusAnterior as OTStatus) || 'produccion_interna';
+
+    tx.update(otRef, {
+      esPausada: false,
+      status: restoredStatus,
+      updatedAt: serverTimestamp(),
+    });
+
+    tx.set(changeRef, {
+      timestamp: serverTimestamp(),
+      usuarioUid: uid,
+      usuarioNombre: userName,
+      campo: 'status',
+      valorAnterior: 'en_pausa',
+      valorNuevo: restoredStatus,
+      accion: 'status_change',
+    } as Omit<OTChangeLog, 'id'>);
+  });
+}
+
 export async function incrementPiezas(
   otId: string,
   cantidad: number,

@@ -20,6 +20,8 @@ import {
   addOperacion,
   deleteOperacion,
   addOTComment,
+  pausarWorkOrder,
+  reanudarWorkOrder,
 } from '@/lib/firebase/firestore/work-orders';
 import { parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -52,6 +54,8 @@ import {
   MessageSquare,
   Send,
   Truck,
+  PauseCircle,
+  Play,
 } from 'lucide-react';
 
 interface OTDrawerProps {
@@ -94,6 +98,11 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
   const [editMaterial, setEditMaterial] = useState(workOrder.material || '');
   const [editPlanoURL, setEditPlanoURL] = useState(workOrder.planoURL || '');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Pause state
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [motivoPausaInput, setMotivoPausaInput] = useState('');
+  const [pausing, setPausing] = useState(false);
 
   // Operaciones state
   const [localOps, setLocalOps] = useState<OTOperation[]>(workOrder.operaciones ?? []);
@@ -203,6 +212,57 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
       setError('Error al registrar el comentario.');
     } finally {
       setSubmittingComment(false);
+    }
+  }
+
+  async function handlePausar() {
+    if (!motivoPausaInput.trim()) return;
+    setPausing(true);
+    try {
+      await pausarWorkOrder(
+        workOrder.id,
+        motivoPausaInput.trim(),
+        userData?.uid || '',
+        userData?.displayName || userData?.email || 'Usuario'
+      );
+      const updated = {
+        ...workOrder,
+        status: 'en_pausa' as OTStatus,
+        esPausada: true,
+        motivoPausa: motivoPausaInput.trim(),
+        statusAnterior: workOrder.status,
+      };
+      onUpdate(updated);
+      setShowPauseModal(false);
+      setMotivoPausaInput('');
+      await loadLogs();
+    } catch (err) {
+      setError('Error al pausar la OT');
+    } finally {
+      setPausing(false);
+    }
+  }
+
+  async function handleReanudar() {
+    setPausing(true);
+    try {
+      await reanudarWorkOrder(
+        workOrder.id,
+        userData?.uid || '',
+        userData?.displayName || userData?.email || 'Usuario'
+      );
+      const restored = workOrder.statusAnterior || 'produccion_interna';
+      const updated = {
+        ...workOrder,
+        status: restored,
+        esPausada: false,
+      };
+      onUpdate(updated);
+      await loadLogs();
+    } catch (err) {
+      setError('Error al reanudar la OT');
+    } finally {
+      setPausing(false);
     }
   }
 
@@ -332,6 +392,25 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
             )}
           </div>
           <div className="flex items-center gap-2">
+            {workOrder.status === 'en_pausa' || workOrder.esPausada ? (
+              <button
+                onClick={handleReanudar}
+                disabled={pausing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-emerald-600/20"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                Reanudar
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowPauseModal(!showPauseModal)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900 border border-purple-500/40 text-purple-300 rounded-xl text-xs font-semibold transition-all"
+              >
+                <PauseCircle className="w-3.5 h-3.5 text-purple-400" />
+                Pausar
+              </button>
+            )}
+
             {canEdit && (
               <button
                 id="edit-ot-toggle-btn"
@@ -358,6 +437,73 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Pause Modal / Input Box */}
+          {showPauseModal && (
+            <div className="bg-purple-950/70 border border-purple-500/50 rounded-2xl p-4 space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-purple-200 flex items-center gap-1.5">
+                  <PauseCircle className="w-4 h-4 text-purple-400" />
+                  Pausar Trabajo de la OT
+                </h4>
+                <button
+                  onClick={() => setShowPauseModal(false)}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-purple-300/80">
+                Escribe el motivo por el cual se deja en pausa este trabajo (ej: <em>"Llegó trabajo urgente de DEACERO"</em>):
+              </p>
+              <textarea
+                value={motivoPausaInput}
+                onChange={(e) => setMotivoPausaInput(e.target.value)}
+                placeholder="Motivo de la pausa..."
+                rows={2}
+                className="w-full px-3 py-2 bg-slate-900 border border-purple-500/40 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowPauseModal(false)}
+                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handlePausar}
+                  disabled={pausing || !motivoPausaInput.trim()}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-purple-600/30"
+                >
+                  {pausing ? 'Pausando...' : 'Confirmar Pausa ⏸️'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Banner de OT Pausada */}
+          {(workOrder.status === 'en_pausa' || workOrder.esPausada) && (
+            <div className="bg-purple-950/50 border border-purple-500/40 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                  <PauseCircle className="w-5 h-5 text-purple-400 animate-pulse" />
+                  <span>ESTA ORDEN ESTÁ EN PAUSA</span>
+                </div>
+                <button
+                  onClick={handleReanudar}
+                  disabled={pausing}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  Reanudar Trabajo
+                </button>
+              </div>
+              {workOrder.motivoPausa && (
+                <p className="text-xs text-purple-200 bg-purple-900/40 p-2.5 rounded-xl border border-purple-500/20">
+                  <strong>Motivo de la Pausa:</strong> {workOrder.motivoPausa}
+                </p>
+              )}
+            </div>
+          )}
           {/* Formulario de Edición de OT */}
           {isEditing ? (
             <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 space-y-4">

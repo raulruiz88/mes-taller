@@ -8,6 +8,7 @@ const STAGE_BASE_PROGRESS: Record<OTStatus, number> = {
   produccion_interna: 30, // base: se suma el parcial de piezas
   maquila_externa: 80,
   calidad_envio: 90,
+  en_pausa: 0,
   completada: 100,
   cancelada: 0,
 };
@@ -39,7 +40,7 @@ export function getUrgency(
   fechaEntrega: { toDate: () => Date } | Date,
   status: OTStatus
 ): UrgencyLevel {
-  if (status === 'completada' || status === 'cancelada') return 'gris';
+  if (status === 'completada' || status === 'cancelada' || status === 'en_pausa') return 'gris';
   const date =
     fechaEntrega instanceof Date ? fechaEntrega : fechaEntrega.toDate();
   const horasRestantes = differenceInHours(date, new Date());

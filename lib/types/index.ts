@@ -61,6 +61,7 @@ export type OTStatus =
   | 'produccion_interna'
   | 'maquila_externa'
   | 'calidad_envio'
+  | 'en_pausa'
   | 'completada'
   | 'cancelada';
 
@@ -118,6 +119,10 @@ export interface WorkOrder {
   updatedAt: Timestamp;
   operaciones?: OTOperation[]; // Operaciones de manufactura por OT
   esMaquilaDirecta?: boolean;  // OT 100% Maquila Externa / Servicio Directo
+  esPausada?: boolean;
+  statusAnterior?: OTStatus;
+  motivoPausa?: string;
+  fechaPausa?: Timestamp;
 }
 
 // Subcolección: work_orders/{otId}/changelog
@@ -398,6 +403,7 @@ export const OT_STATUS_LABELS: Record<OTStatus, string> = {
   produccion_interna: 'Producción',
   maquila_externa: 'Maquila Externa',
   calidad_envio: 'Calidad / Envío',
+  en_pausa: 'En Pausa ⏸️',
   completada: 'Completada',
   cancelada: 'Cancelada',
 };

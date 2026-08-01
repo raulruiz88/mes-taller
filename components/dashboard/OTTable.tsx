@@ -3,20 +3,23 @@
 import { useState, useMemo } from 'react';
 import { WorkOrder, OTStatus, OT_STATUS_LABELS, OT_STATUS_ORDER } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
+import { getUrgency } from '@/lib/utils/urgency';
 import UrgencyBadge from './UrgencyBadge';
 import ProgressBar from './ProgressBar';
 import OTDrawer from './OTDrawer';
-import { ChevronRight, Filter, Search, History, Zap } from 'lucide-react';
+import { ChevronRight, Filter, Search, History, Zap, PauseCircle } from 'lucide-react';
 
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface OTTableProps {
   workOrders: WorkOrder[];
   loading: boolean;
+  cardFilter?: string | null;
+  onClearCardFilter?: () => void;
 }
 
 const ACTIVE_STATUSES: OTStatus[] = [
-  'pendiente', 'compras_mp', 'diseno', 'produccion_interna', 'maquila_externa', 'calidad_envio',
+  'pendiente', 'compras_mp', 'diseno', 'produccion_interna', 'maquila_externa', 'calidad_envio', 'en_pausa',
 ];
 
 const CLOSED_STATUSES: OTStatus[] = ['completada', 'cancelada'];
@@ -24,9 +27,10 @@ const CLOSED_STATUSES: OTStatus[] = ['completada', 'cancelada'];
 const STATUS_FILTER_OPTIONS: { value: OTStatus | 'todas'; label: string }[] = [
   { value: 'todas', label: 'Todos los estados' },
   ...OT_STATUS_ORDER.map((s) => ({ value: s, label: OT_STATUS_LABELS[s] })),
+  { value: 'en_pausa', label: 'En Pausa ⏸️' },
 ];
 
-export default function OTTable({ workOrders, loading }: OTTableProps) {
+export default function OTTable({ workOrders, loading, cardFilter, onClearCardFilter }: OTTableProps) {
   const { isAdmin } = useAuth();
   const [selectedOT, setSelectedOT] = useState<WorkOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<OTStatus | 'todas'>('todas');
@@ -46,13 +50,23 @@ export default function OTTable({ workOrders, loading }: OTTableProps) {
   const baseList = showHistory ? historicalOrders : activeOrders;
 
   const filtered = baseList
+    .filter((o) => {
+      if (!cardFilter || showHistory) return true;
+      if (cardFilter === 'criticas') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'rojo';
+      if (cardFilter === 'urgentes') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'amarillo';
+      if (cardFilter === 'pausa') return o.status === 'en_pausa' || Boolean(o.esPausada);
+      if (cardFilter === 'maquila') return o.status === 'maquila_externa' || Boolean(o.esMaquilaDirecta) || o.operaciones?.some((op) => op.centroTrabajo?.toLowerCase().includes('maquila'));
+      if (cardFilter === 'envio') return o.status === 'calidad_envio';
+      return true;
+    })
     .filter((o) => statusFilter === 'todas' || o.status === statusFilter)
     .filter(
       (o) =>
         !searchQuery ||
         o.folio.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.cliente.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.descripcion.toLowerCase().includes(searchQuery.toLowerCase())
+        o.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (o.motivoPausa && o.motivoPausa.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
   if (loading) {
@@ -185,9 +199,22 @@ export default function OTTable({ workOrders, loading }: OTTableProps) {
                     <span className="text-slate-500 text-xs">•</span>
                     <span className="text-xs text-slate-400">{ot.ocFolio}</span>
                     <UrgencyBadge workOrder={ot} size="sm" />
+                    {(ot.status === 'en_pausa' || ot.esPausada) && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium flex items-center gap-1">
+                        <PauseCircle className="w-3 h-3 text-purple-400" />
+                        EN PAUSA
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-white font-medium truncate">{ot.descripcion}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{ot.cliente}</p>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 truncate">
+                    <span>{ot.cliente}</span>
+                    {ot.motivoPausa && (ot.status === 'en_pausa' || ot.esPausada) && (
+                      <span className="text-purple-300 font-medium truncate bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/30">
+                        ⏸️ {ot.motivoPausa}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Status */}
