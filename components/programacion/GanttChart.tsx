@@ -40,7 +40,11 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
 
     // Técnicos conocidos
     techUsers.forEach((u) => {
-      const otsOfTech = activeOTs.filter((o) => o.asignadoA === u.uid);
+      const otsOfTech = activeOTs.filter(
+        (o) =>
+          (u.uid && o.asignadoA === u.uid) ||
+          (u.displayName && o.asignadoNombre?.toLowerCase() === u.displayName.toLowerCase())
+      );
       if (filterTechUid === 'todos' || filterTechUid === u.uid) {
         list.push({
           user: u,
@@ -51,7 +55,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
     });
 
     // Fila para OTs sin asignar
-    const unassignedOTs = activeOTs.filter((o) => !o.asignadoA);
+    const unassignedOTs = activeOTs.filter((o) => !o.asignadoA && !o.asignadoNombre);
     if (unassignedOTs.length > 0 && filterTechUid === 'todos') {
       list.push({
         label: '⚠️ Sin Asignar a Técnico',
