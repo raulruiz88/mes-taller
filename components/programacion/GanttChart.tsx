@@ -5,8 +5,8 @@ import { WorkOrder, AppUser } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import { getUrgency } from '@/lib/utils/urgency';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Calendar, Clock, AlertTriangle, User, PauseCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { addDays, subDays, format, isSameDay, differenceInDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import { Calendar, Clock, AlertTriangle, User, PauseCircle, ChevronLeft, ChevronRight, CheckCircle2, ArrowRight } from 'lucide-react';
+import { addDays, subDays, format, isSameDay, differenceInDays, startOfWeek, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface GanttChartProps {
@@ -17,11 +17,11 @@ interface GanttChartProps {
 
 export default function GanttChart({ workOrders, users, onSelectOT }: GanttChartProps) {
   const { isAdmin } = useAuth();
-  const [viewMode, setViewMode] = useState<'semana' | 'mes'>('semana');
+  const [viewMode, setViewMode] = useState<'hoy' | 'semana' | 'mes'>('semana');
   const [baseDate, setBaseDate] = useState<Date>(new Date());
   const [filterTechUid, setFilterTechUid] = useState<string>('todos');
 
-  // Filtrar técnicos
+  // Técnicos / Operadores / Supervisores
   const techUsers = useMemo(
     () => users.filter((u) => u.role === 'tecnico' || u.role === 'supervisor' || u.role === 'produccion'),
     [users]
@@ -34,39 +34,66 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       .filter((o) => filterTechUid === 'todos' || o.asignadoA === filterTechUid);
   }, [workOrders, filterTechUid]);
 
-  // Generar rango de días según el modo de vista (Semana de 7 días o Mes de 30 días)
+  // Agrupar OTs por técnico
+  const techRows = useMemo(() => {
+    const list: { user?: AppUser; label: string; ots: WorkOrder[] }[] = [];
+
+    // Técnicos conocidos
+    techUsers.forEach((u) => {
+      const otsOfTech = activeOTs.filter((o) => o.asignadoA === u.uid);
+      if (filterTechUid === 'todos' || filterTechUid === u.uid) {
+        list.push({
+          user: u,
+          label: u.displayName,
+          ots: otsOfTech,
+        });
+      }
+    });
+
+    // Fila para OTs sin asignar
+    const unassignedOTs = activeOTs.filter((o) => !o.asignadoA);
+    if (unassignedOTs.length > 0 && filterTechUid === 'todos') {
+      list.push({
+        label: '⚠️ Sin Asignar a Técnico',
+        ots: unassignedOTs,
+      });
+    }
+
+    return list;
+  }, [techUsers, activeOTs, filterTechUid]);
+
+  // Generar intervalo de días para Semana (7 días) y Mes (30 días)
   const daysInterval = useMemo(() => {
     if (viewMode === 'semana') {
       const start = startOfWeek(baseDate, { weekStartsOn: 1 });
       const end = addDays(start, 6);
       return eachDayOfInterval({ start, end });
     } else {
-      const start = subDays(baseDate, 5);
+      const start = subDays(baseDate, 3);
       const end = addDays(start, 29);
       return eachDayOfInterval({ start, end });
     }
   }, [viewMode, baseDate]);
 
-  const startDateRange = daysInterval[0];
-  const endDateRange = daysInterval[daysInterval.length - 1];
-
   return (
     <div className="glass rounded-2xl p-6 border border-slate-800 space-y-6">
       {/* Controls & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-400" />
-            Diagrama de Gantt & Programación
+            Programación de Trabajos por Técnico
           </h2>
           <p className="text-xs text-slate-400">
-            Seguimiento de tiempos, duraciones y desviaciones por orden de trabajo
+            {viewMode === 'hoy'
+              ? 'Vista detallada completa de las asignaciones activas de hoy'
+              : 'Matriz comprimida por técnico y días límite de entrega'}
           </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
           {/* Selector Técnico */}
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
             <User className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={filterTechUid}
@@ -76,14 +103,24 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
               <option value="todos" className="bg-slate-900">Todos los Técnicos</option>
               {techUsers.map((t) => (
                 <option key={t.uid} value={t.uid} className="bg-slate-900">
-                  {t.displayName}
+                  {t.displayName} ({t.role})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Toggle Vista Semana / Mes */}
+          {/* Toggle Vista: Hoy / Semana / Mes */}
           <div className="flex bg-slate-900 border border-slate-700 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setViewMode('hoy')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'hoy'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Hoy (Detallado)
+            </button>
             <button
               onClick={() => setViewMode('semana')}
               className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
@@ -92,7 +129,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Semana (7 días)
+              Semana (7d)
             </button>
             <button
               onClick={() => setViewMode('mes')}
@@ -102,155 +139,213 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Mes (30 días)
+              Mes (30d)
             </button>
           </div>
 
-          {/* Nav Fechas */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1">
-            <button
-              onClick={() => setBaseDate(subDays(baseDate, viewMode === 'semana' ? 7 : 15))}
-              className="p-1 text-slate-400 hover:text-white transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setBaseDate(new Date())}
-              className="px-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300"
-            >
-              Hoy
-            </button>
-            <button
-              onClick={() => setBaseDate(addDays(baseDate, viewMode === 'semana' ? 7 : 15))}
-              className="p-1 text-slate-400 hover:text-white transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Gantt Matrix Container */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[900px] space-y-2">
-          {/* Header Rows (Días) */}
-          <div className="flex border-b border-slate-800 pb-2 text-xs font-semibold text-slate-400">
-            <div className="w-72 shrink-0 pr-2">Orden de Trabajo / Técnico</div>
-            <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 text-center">
-              {daysInterval.map((day, idx) => {
-                const isToday = isSameDay(day, new Date());
-                return (
-                  <div
-                    key={idx}
-                    className={`py-1 rounded-lg ${
-                      isToday ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/40' : ''
-                    }`}
-                  >
-                    <p className="text-[10px] uppercase">{format(day, 'eee', { locale: es })}</p>
-                    <p className="text-xs">{format(day, 'dd/MM')}</p>
-                  </div>
-                );
-              })}
+          {/* Nav Fechas para Semana/Mes */}
+          {viewMode !== 'hoy' && (
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-xl p-1">
+              <button
+                onClick={() => setBaseDate(subDays(baseDate, viewMode === 'semana' ? 7 : 15))}
+                className="p-1 text-slate-400 hover:text-white transition-colors"
+                title="Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setBaseDate(new Date())}
+                className="px-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300"
+              >
+                Hoy
+              </button>
+              <button
+                onClick={() => setBaseDate(addDays(baseDate, viewMode === 'semana' ? 7 : 15))}
+                className="p-1 text-slate-400 hover:text-white transition-colors"
+                title="Siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-
-          {/* Rows per OT */}
-          {activeOTs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No hay órdenes activas programadas en este rango de fechas.</p>
-            </div>
-          ) : (
-            activeOTs.map((ot) => {
-              const start = ot.fechaInicio
-                ? ('toDate' in ot.fechaInicio ? ot.fechaInicio.toDate() : new Date(ot.fechaInicio))
-                : new Date();
-              const end = ot.fechaEntrega
-                ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
-                : addDays(new Date(), 3);
-
-              // Calcular desvío / retraso en días
-              const today = new Date();
-              const diasRetraso = differenceInDays(today, end);
-              const isOverdue = diasRetraso > 0 && ot.status !== 'en_pausa';
-
-              const urgency = getUrgency(ot.fechaEntrega, ot.status);
-
-              // Determinar color de barra
-              let barColor = 'bg-emerald-600/80 border-emerald-500 text-emerald-100';
-              if (ot.status === 'en_pausa') {
-                barColor = 'bg-purple-600/80 border-purple-500 text-purple-100';
-              } else if (urgency === 'rojo') {
-                barColor = 'bg-red-600/90 border-red-500 text-white animate-pulse-slow';
-              } else if (urgency === 'amarillo') {
-                barColor = 'bg-amber-600/80 border-amber-500 text-amber-100';
-              }
-
-              return (
-                <div
-                  key={ot.id}
-                  className="flex items-center glass-light rounded-xl p-2.5 hover:bg-slate-800/60 transition-all group"
-                >
-                  {/* Info Izquierda */}
-                  <div className="w-72 shrink-0 pr-3 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-blue-400">{ot.folio}</span>
-                      {ot.asignadoNombre ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                          {ot.asignadoNombre}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">
-                          Sin Asignar
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-white font-medium truncate mt-0.5">{ot.descripcion}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                      <span>Entrega: {formatDate(ot.fechaEntrega)}</span>
-                      {isOverdue && (
-                        <span className="text-red-400 font-bold bg-red-950/60 px-1 rounded border border-red-500/30">
-                          +{diasRetraso}d Atraso
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Barra Visual Gantt */}
-                  <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 items-center">
-                    {daysInterval.map((day, idx) => {
-                      const isBetween = day >= start && day <= end;
-                      const isEndDay = isSameDay(day, end);
-
-                      return (
-                        <div key={idx} className="h-9 flex items-center justify-center relative">
-                          {isBetween && (
-                            <button
-                              onClick={() => onSelectOT(ot)}
-                              title={`${ot.folio}: ${ot.descripcion} | Entrega: ${formatDate(ot.fechaEntrega)}`}
-                              className={`w-full h-7 rounded-lg border text-[10px] font-semibold flex items-center justify-center px-1 truncate transition-transform hover:scale-[1.03] ${barColor}`}
-                            >
-                              {isEndDay ? (
-                                ot.status === 'en_pausa' ? '⏸️ Pausa' : '🏁 Límite'
-                              ) : (
-                                <span className="opacity-90">{ot.piezasProcesadas}/{ot.totalPiezas} pzas</span>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
           )}
         </div>
       </div>
 
-      {/* Leyenda del Gantt */}
+      {/* ── MODO 1: HOY (VISTA DETALLADA COMPLETA POR TÉCNICO) ── */}
+      {viewMode === 'hoy' && (
+        <div className="space-y-6">
+          {techRows.map((row) => (
+            <div key={row.label} className="glass-light rounded-2xl p-5 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600/30 border border-blue-500/30 flex items-center justify-center font-bold text-white text-xs">
+                    {row.label.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">{row.label}</h3>
+                    {row.user && <p className="text-[11px] text-slate-400 capitalize">{row.user.role}</p>}
+                  </div>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-medium">
+                  {row.ots.length} trabajo{row.ots.length !== 1 ? 's' : ''} asignado{row.ots.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {row.ots.length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-2">No tiene trabajos asignados en este momento.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {row.ots.map((ot) => {
+                    const urgency = getUrgency(ot.fechaEntrega, ot.status);
+                    const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+
+                    return (
+                      <div
+                        key={ot.id}
+                        onClick={() => onSelectOT(ot)}
+                        className="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 p-4 rounded-xl cursor-pointer transition-all space-y-2 group hover:border-blue-500/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs font-bold text-blue-400">{ot.folio}</span>
+                          {ot.status === 'en_pausa' ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium flex items-center gap-1">
+                              <PauseCircle className="w-3 h-3" /> Pausada
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              urgency === 'rojo' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                              urgency === 'amarillo' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}>
+                              {urgency === 'rojo' ? 'CRÍTICA' : urgency === 'amarillo' ? 'URGENTE' : 'EN TIEMPO'}
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-white font-semibold line-clamp-2">{ot.descripcion}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Cliente: <strong className="text-slate-300">{ot.cliente}</strong></p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800 text-slate-400">
+                          <span>Piezas: <strong className="text-emerald-400">{ot.piezasProcesadas} / {ot.totalPiezas}</strong></span>
+                          <span>Entrega: <strong className="text-slate-200">{formatDate(ot.fechaEntrega)}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── MODO 2 & 3: SEMANA (7d) Y MES (30d) ── */}
+      {(viewMode === 'semana' || viewMode === 'mes') && (
+        <div className="overflow-x-auto">
+          <div className="min-w-[850px] space-y-3">
+            {/* Header de Fechas */}
+            <div className="flex items-center border-b border-slate-800 pb-2 text-xs font-semibold text-slate-400">
+              <div className="w-56 shrink-0 pr-3">Técnico / Operador</div>
+              <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 text-center">
+                {daysInterval.map((day, idx) => {
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <div
+                      key={idx}
+                      className={`py-1 rounded-lg transition-colors ${
+                        isToday
+                          ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/40'
+                          : 'hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <p className="text-[9px] uppercase tracking-tighter opacity-80">
+                        {format(day, viewMode === 'mes' ? 'EE' : 'EEE', { locale: es })}
+                      </p>
+                      <p className="text-xs font-mono font-bold">
+                        {format(day, 'dd')}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filas por Técnico */}
+            {techRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center glass-light rounded-xl p-3 border border-slate-800/80 hover:border-slate-700 transition-all"
+              >
+                {/* Columna Izquierda: Nombre del Técnico */}
+                <div className="w-56 shrink-0 pr-3 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-xs shrink-0">
+                      {row.label.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{row.label}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {row.ots.length} OT{row.ots.length !== 1 ? 's' : ''} asignada{row.ots.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grilla de Días en la Derecha */}
+                <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 items-center">
+                  {daysInterval.map((day, idx) => {
+                    // OTs activas cuya fecha de entrega cae en este día o están en proceso en esta fecha
+                    const otsOnDay = row.ots.filter((ot) => {
+                      const deliveryDate = ot.fechaEntrega
+                        ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
+                        : null;
+                      return deliveryDate && isSameDay(day, deliveryDate);
+                    });
+
+                    return (
+                      <div key={idx} className="min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5">
+                        {otsOnDay.map((ot) => {
+                          const urgency = getUrgency(ot.fechaEntrega, ot.status);
+                          // Extraer código corto (ej: "012" o "OT-012")
+                          const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+                          const shortClient = ot.cliente.split(' ')[0];
+
+                          let badgeColor = 'bg-emerald-600/90 text-emerald-100 border-emerald-400/50 hover:bg-emerald-500';
+                          if (ot.status === 'en_pausa') {
+                            badgeColor = 'bg-purple-600/90 text-purple-100 border-purple-400/50 hover:bg-purple-500';
+                          } else if (urgency === 'rojo') {
+                            badgeColor = 'bg-red-600 text-white border-red-400 hover:bg-red-500 animate-pulse-slow';
+                          } else if (urgency === 'amarillo') {
+                            badgeColor = 'bg-amber-600/90 text-amber-100 border-amber-400/50 hover:bg-amber-500';
+                          }
+
+                          return (
+                            <button
+                              key={ot.id}
+                              onClick={() => onSelectOT(ot)}
+                              title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
+                              className={`w-full text-left px-1.5 py-1 rounded-md border text-[10px] font-semibold transition-all shadow-sm truncate flex items-center justify-between gap-1 ${badgeColor}`}
+                            >
+                              <span className="font-mono font-bold shrink-0">{shortFolio}</span>
+                              <span className="truncate opacity-90 text-[9px]">{shortClient}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Leyenda */}
       <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-3 flex-wrap gap-3">
-        <span className="font-semibold text-slate-300">Simbología:</span>
+        <span className="font-semibold text-slate-300">Simbología en calendario:</span>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-500" />
@@ -262,7 +357,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-red-500" />
-            <span>Crítico / Atrasado</span>
+            <span>Crítico / Límite Hoy</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-purple-500" />
