@@ -312,12 +312,19 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                         {/* Grilla de Días en la Derecha */}
                         {daysInterval.map((day, idx) => {
                           const isToday = isSameDay(day, new Date());
-                          // OTs activas cuya fecha de entrega cae en este día
+                          // OTs activas cuya fecha de entrega cae en este día o están atrasadas (se muestran en HOY)
                           const otsOnDay = row.ots.filter((ot) => {
                             const deliveryDate = ot.fechaEntrega
                               ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
                               : null;
-                            return deliveryDate && isSameDay(day, deliveryDate);
+                            
+                            if (isToday) {
+                              if (!deliveryDate) return true;
+                              const isOverdue = differenceInDays(new Date(), deliveryDate) > 0 && !isSameDay(deliveryDate, new Date());
+                              if (isOverdue) return true;
+                            }
+
+                            return deliveryDate ? isSameDay(day, deliveryDate) : false;
                           });
 
                           return (

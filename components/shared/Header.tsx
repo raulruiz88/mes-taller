@@ -73,9 +73,10 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
     return level === 'rojo';
   });
 
-  const unreadAppNotifs = appNotifications.filter(
-    (n) => userData?.uid && !n.leidoPor?.includes(userData.uid)
-  );
+  const unreadAppNotifs = appNotifications.filter((n) => {
+    if (!userData?.uid) return true;
+    return !(n.leidoPor || []).includes(userData.uid);
+  });
 
   const totalBadges = criticalOTs.length + unreadAppNotifs.length;
 
@@ -170,8 +171,8 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    Nuevas OCs ({unreadAppNotifs.length})
+                    <Bell className="w-3.5 h-3.5" />
+                    🔔 Avisos ({unreadAppNotifs.length})
                   </button>
                   <button
                     onClick={() => setNotifTab('alerts')}
@@ -186,7 +187,7 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
                   </button>
                 </div>
 
-                {/* Tab Content: Nuevas OCs */}
+                {/* Tab Content: Avisos / OCs / Asignaciones */}
                 {notifTab === 'oc' && (
                   <div>
                     {unreadAppNotifs.length > 0 && (
@@ -209,7 +210,7 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-slate-800">
                         {appNotifications.map((notif) => {
-                          const isUnread = userData?.uid && !notif.leidoPor?.includes(userData.uid);
+                          const isUnread = Boolean(userData?.uid && !(notif.leidoPor || []).includes(userData.uid));
                           return (
                             <button
                               key={notif.id}
@@ -218,18 +219,20 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
                                   await markNotificationAsRead(notif.id, userData.uid);
                                 }
                                 setNotifOpen(false);
-                                if (notif.ocId) {
+                                if (notif.otId) {
+                                  goToOT(notif.otId);
+                                } else if (notif.ocId) {
                                   router.push(`/dashboard/ordenes/${notif.ocId}`);
                                 } else {
                                   router.push('/dashboard/ordenes');
                                 }
                               }}
                               className={`w-full text-left px-4 py-3 hover:bg-slate-800/60 transition-colors flex items-start gap-3 ${
-                                isUnread ? 'bg-blue-950/20' : ''
+                                isUnread ? 'bg-blue-950/30 font-medium' : ''
                               }`}
                             >
                               <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                                <ShoppingCart className="w-4 h-4" />
+                                <Bell className="w-4 h-4 text-blue-400" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-1">
@@ -243,9 +246,11 @@ export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu?: ()
                                 <p className="text-xs text-slate-300 mt-0.5 line-clamp-2">
                                   {notif.mensaje}
                                 </p>
-                                <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                                  {formatDateTime(notif.createdAt)}
-                                </p>
+                                {notif.creadoPorNombre && (
+                                  <p className="text-[10px] text-slate-400 mt-0.5">
+                                    Por: {notif.creadoPorNombre}
+                                  </p>
+                                )}
                               </div>
                             </button>
                           );
