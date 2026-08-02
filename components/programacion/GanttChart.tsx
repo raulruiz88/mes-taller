@@ -373,6 +373,8 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                               {otsOnDay.map((ot) => {
                                 const urgency = getUrgency(ot.fechaEntrega, ot.status);
                                 const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+                                const clientWord = ot.cliente ? ot.cliente.trim().split(' ')[0] : '';
+                                const displayLabel = clientWord ? `${shortFolio} • ${clientWord}` : shortFolio;
 
                                 let badgeColor = 'bg-emerald-600 text-white border-emerald-400/60 hover:bg-emerald-500';
                                 if (ot.status === 'en_pausa') {
@@ -388,9 +390,9 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                                     key={ot.id}
                                     onClick={() => onSelectOT(ot)}
                                     title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
-                                    className={`w-full py-1 rounded-lg border text-[11px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
+                                    className={`w-full py-1 px-1 rounded-lg border text-[10px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
                                   >
-                                    {shortFolio}
+                                    {displayLabel}
                                   </button>
                                 );
                               })}
@@ -449,6 +451,8 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                                 {otsOnDay.map((ot) => {
                                   const urgency = getUrgency(ot.fechaEntrega, ot.status);
                                   const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+                                  const clientWord = ot.cliente ? ot.cliente.trim().split(' ')[0] : '';
+                                  const displayLabel = clientWord ? `${shortFolio} • ${clientWord}` : shortFolio;
 
                                   let badgeColor = 'bg-amber-600 text-amber-100 border-amber-400/60 hover:bg-amber-500';
 
@@ -457,9 +461,9 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                                       key={ot.id}
                                       onClick={() => onSelectOT(ot)}
                                       title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
-                                      className={`w-full py-1 rounded-lg border text-[11px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
+                                      className={`w-full py-1 px-1 rounded-lg border text-[10px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
                                     >
-                                      {shortFolio}
+                                      {displayLabel}
                                     </button>
                                   );
                                 })}
