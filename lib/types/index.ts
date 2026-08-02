@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase/firestore';
 // ROLES & USERS
 // ─────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'produccion' | 'compras';
+export type UserRole = 'admin' | 'produccion' | 'compras' | 'tecnico' | 'supervisor';
 
 export interface AppUser {
   uid: string;
@@ -115,6 +115,7 @@ export interface WorkOrder {
   planoURL?: string;
   notas?: string;
   asignadoA?: string;      // uid
+  asignadoNombre?: string; // nombre del técnico desnormalizado
   creadoPor: string;       // uid
   updatedAt: Timestamp;
   operaciones?: OTOperation[]; // Operaciones de manufactura por OT

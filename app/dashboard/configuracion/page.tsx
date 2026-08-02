@@ -638,6 +638,16 @@ export default function ConfiguracionPage() {
                           🛒 Compras
                         </span>
                       )}
+                      {u.role === 'tecnico' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-medium">
+                          👨‍🔧 Técnico / Operador
+                        </span>
+                      )}
+                      {u.role === 'supervisor' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-medium">
+                          👮 Supervisor
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5 font-mono">{u.email}</p>
                   </div>
@@ -652,6 +662,8 @@ export default function ConfiguracionPage() {
                     <option value="admin">Administrador</option>
                     <option value="produccion">Producción</option>
                     <option value="compras">Compras</option>
+                    <option value="tecnico">Técnico / Operador</option>
+                    <option value="supervisor">Supervisor</option>
                   </select>
 
                   {u.uid !== userData?.uid && (

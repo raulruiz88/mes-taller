@@ -22,7 +22,9 @@ import {
   addOTComment,
   pausarWorkOrder,
   reanudarWorkOrder,
+  asignarWorkOrder,
 } from '@/lib/firebase/firestore/work-orders';
+import { getAllUsers } from '@/lib/firebase/firestore/users';
 import { parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/lib/hooks/useAuth';
 import UrgencyBadge from './UrgencyBadge';
@@ -104,6 +106,9 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
   const [motivoPausaInput, setMotivoPausaInput] = useState('');
   const [pausing, setPausing] = useState(false);
 
+  // Technicians state
+  const [technicians, setTechnicians] = useState<any[]>([]);
+
   // Operaciones state
   const [localOps, setLocalOps] = useState<OTOperation[]>(workOrder.operaciones ?? []);
   const [loadingOpId, setLoadingOpId] = useState<string | null>(null);
@@ -142,6 +147,35 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
       setEditFechaCliente('');
     }
   }, [workOrder]);
+
+  useEffect(() => {
+    getAllUsers().then((users) => {
+      setTechnicians(users.filter((u) => u.isActive !== false));
+    }).catch(() => {});
+  }, []);
+
+  async function handleAssignTechnician(techUid: string) {
+    const selectedTech = technicians.find((t) => t.uid === techUid);
+    const techName = selectedTech ? selectedTech.displayName : '';
+
+    try {
+      await asignarWorkOrder(
+        workOrder.id,
+        techUid,
+        techName,
+        userData?.uid || '',
+        userData?.displayName || 'Usuario'
+      );
+      onUpdate({
+        ...workOrder,
+        asignadoA: techUid,
+        asignadoNombre: techName,
+      });
+      await loadLogs();
+    } catch {
+      setError('Error al asignar la OT al técnico.');
+    }
+  }
 
   async function handleOpPiezas(op: OTOperation, delta: number) {
     if (!userData) return;
@@ -621,6 +655,33 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
                   Descripción
                 </h3>
                 <p className="text-white font-medium">{workOrder.descripcion}</p>
+              </div>
+
+              {/* Técnico Asignado */}
+              <div className="glass-light rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-emerald-400" />
+                    Técnico / Operador Asignado:
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
+                    {workOrder.asignadoNombre || 'Sin Asignar'}
+                  </span>
+                </div>
+                {(userData?.role === 'admin' || userData?.role === 'supervisor' || userData?.role === 'produccion') && (
+                  <select
+                    value={workOrder.asignadoA || ''}
+                    onChange={(e) => handleAssignTechnician(e.target.value)}
+                    className="w-full mt-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Asignar Técnico --</option>
+                    {technicians.map((t) => (
+                      <option key={t.uid} value={t.uid}>
+                        {t.displayName} ({t.role === 'tecnico' ? 'Técnico' : t.role === 'supervisor' ? 'Supervisor' : t.role})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Plano link & Dibujo técnico */}

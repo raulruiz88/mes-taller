@@ -18,6 +18,7 @@ import {
   Users,
   ShoppingBag,
   Building2,
+  Calendar,
   X,
 } from 'lucide-react';
 
@@ -26,13 +27,19 @@ const navItems = [
     href: '/dashboard',
     icon: LayoutDashboard,
     label: 'Dashboard',
-    roles: ['admin', 'produccion', 'compras'],
+    roles: ['admin', 'produccion', 'compras', 'tecnico', 'supervisor'],
+  },
+  {
+    href: '/dashboard/programacion',
+    icon: Calendar,
+    label: 'Programación & Gantt',
+    roles: ['admin', 'produccion', 'compras', 'tecnico', 'supervisor'],
   },
   {
     href: '/dashboard/ordenes',
     icon: ClipboardList,
     label: 'Órdenes de Compra',
-    roles: ['admin', 'produccion', 'compras'],
+    roles: ['admin', 'produccion', 'compras', 'supervisor'],
   },
   {
     href: '/dashboard/compras',
@@ -44,7 +51,7 @@ const navItems = [
     href: '/dashboard/maquilas',
     icon: Package,
     label: 'Maquilas / Salidas',
-    roles: ['admin', 'produccion'],
+    roles: ['admin', 'produccion', 'supervisor'],
   },
   {
     href: '/dashboard/finanzas',

@@ -187,6 +187,60 @@ export async function reanudarWorkOrder(
   });
 }
 
+export async function asignarWorkOrder(
+  otId: string,
+  tecnicoUid: string,
+  tecnicoNombre: string,
+  asignadoPorUid: string,
+  asignadoPorNombre: string
+): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const changeRef = doc(collection(db, COL, otId, 'changelog'));
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(otRef);
+    if (!snap.exists()) throw new Error('OT no encontrada');
+
+    const otData = snap.data();
+
+    tx.update(otRef, {
+      asignadoA: tecnicoUid,
+      asignadoNombre: tecnicoNombre,
+      updatedAt: serverTimestamp(),
+    });
+
+    tx.set(changeRef, {
+      timestamp: serverTimestamp(),
+      usuarioUid: asignadoPorUid,
+      usuarioNombre: asignadoPorNombre,
+      campo: 'asignadoA',
+      valorAnterior: otData.asignadoNombre || 'Sin Asignar',
+      valorNuevo: tecnicoNombre,
+      accion: 'field_change',
+    } as any);
+  });
+
+  // Notificación in-app al técnico asignado
+  if (tecnicoUid) {
+    try {
+      const { createNotification } = await import('./notifications');
+      const snap = await getDoc(otRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        await createNotification({
+          tipo: 'cambio_estado_ot',
+          titulo: `📋 OT Asignada a ${tecnicoNombre}`,
+          mensaje: `Se asignó la ${d.folio} (${d.cliente}) - ${d.descripcion}`,
+          otId,
+          creadoPorNombre: asignadoPorNombre,
+        });
+      }
+    } catch {
+      // Ignorar
+    }
+  }
+}
+
 export async function incrementPiezas(
   otId: string,
   cantidad: number,
