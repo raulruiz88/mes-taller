@@ -542,3 +542,50 @@ export async function updateWorkOrderFields(
 
   await updateDoc(otRef, updates);
 }
+
+export async function updateOTComprasInfo(
+  otId: string,
+  data: {
+    materialExistente?: boolean;
+    notasCompras?: string;
+    marcarDisponible?: boolean;
+  },
+  uid: string,
+  userName: string
+): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const changeRef = doc(collection(db, COL, otId, 'changelog'));
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(otRef);
+    if (!snap.exists()) throw new Error('OT no encontrada');
+    const otData = snap.data();
+
+    const updates: Record<string, unknown> = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (data.materialExistente !== undefined) updates.materialExistente = data.materialExistente;
+    if (data.notasCompras !== undefined) updates.notasCompras = data.notasCompras;
+
+    if (data.marcarDisponible) {
+      updates.status = 'produccion_interna';
+    }
+
+    tx.update(otRef, updates);
+
+    const logText = data.materialExistente
+      ? `Material marcado como EXISTENTE EN TALLER (Sobrante/Stock). ${data.notasCompras ? 'Nota: ' + data.notasCompras : ''}`
+      : `Compras: ${data.notasCompras || 'Actualizado'}`;
+
+    tx.set(changeRef, {
+      timestamp: serverTimestamp(),
+      usuarioUid: uid,
+      usuarioNombre: userName,
+      campo: 'notasCompras',
+      valorAnterior: otData.notasCompras || null,
+      valorNuevo: logText,
+      accion: 'field_change',
+    } as any);
+  });
+}

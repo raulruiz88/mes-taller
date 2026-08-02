@@ -14,12 +14,21 @@ export default function MisOTsPage() {
   const { workOrders, loading } = useWorkOrders();
   const [selectedOT, setSelectedOT] = useState<WorkOrder | null>(null);
 
-  // Filtrar OTs asignadas al usuario actual
+  // Filtrar OTs asignadas al usuario actual (o pendientes de compras para el rol de Compras)
   const myWorkOrders = workOrders.filter((o) => {
     if (o.status === 'completada' || o.status === 'cancelada') return false;
+
+    // Si el usuario es de Compras o Admin, incluir OTs que están esperando Materia Prima
+    if ((userData?.role === 'compras' || userData?.role === 'admin') && o.status === 'compras_mp') {
+      return true;
+    }
+
     return (
-      (userData?.uid && o.asignadoA === userData.uid) ||
-      (userData?.displayName && o.asignadoNombre?.toLowerCase() === userData.displayName.toLowerCase())
+      (userData?.uid && (o.asignadoA === userData.uid || o.asignadosA?.includes(userData.uid))) ||
+      (userData?.displayName && (
+        o.asignadoNombre?.toLowerCase() === userData.displayName.toLowerCase() ||
+        o.asignadosNombres?.some((n) => n.toLowerCase() === userData.displayName?.toLowerCase())
+      ))
     );
   });
 

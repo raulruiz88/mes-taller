@@ -121,6 +121,8 @@ export interface WorkOrder {
   creadoPor: string;       // uid
   updatedAt: Timestamp;
   operaciones?: OTOperation[]; // Operaciones de manufactura por OT
+  materialExistente?: boolean; // Si la materia prima ya existe en taller (sobrante/stock)
+  notasCompras?: string;       // Comentario libre de compras/materia prima
   esMaquilaDirecta?: boolean;  // OT 100% Maquila Externa / Servicio Directo
   esPausada?: boolean;
   statusAnterior?: OTStatus;

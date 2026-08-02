@@ -25,6 +25,7 @@ import {
   asignarWorkOrder,
   asignarWorkOrderMultiple,
   deleteWorkOrder,
+  updateOTComprasInfo,
 } from '@/lib/firebase/firestore/work-orders';
 import { getAllUsers } from '@/lib/firebase/firestore/users';
 import { parseLocalDate } from '@/lib/utils';
@@ -60,6 +61,7 @@ import {
   Truck,
   PauseCircle,
   Play,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface OTDrawerProps {
@@ -148,16 +150,47 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
     } else {
       setEditFechaCliente('');
     }
+    setNotasComprasInput(workOrder.notasCompras || '');
   }, [workOrder]);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [notasComprasInput, setNotasComprasInput] = useState(workOrder.notasCompras || '');
+  const [savingCompras, setSavingCompras] = useState(false);
 
   useEffect(() => {
     getAllUsers().then((users) => {
       setTechnicians(users.filter((u) => u.isActive !== false));
     }).catch(() => {});
   }, []);
+
+  async function handleSaveCompras(materialExistente?: boolean, marcarDisponible?: boolean) {
+    setSavingCompras(true);
+    try {
+      const isExistente = materialExistente !== undefined ? materialExistente : workOrder.materialExistente;
+      await updateOTComprasInfo(
+        workOrder.id,
+        {
+          materialExistente: isExistente,
+          notasCompras: notasComprasInput,
+          marcarDisponible,
+        },
+        userData?.uid || '',
+        userData?.displayName || 'Usuario'
+      );
+      onUpdate({
+        ...workOrder,
+        materialExistente: isExistente,
+        notasCompras: notasComprasInput,
+        status: marcarDisponible ? 'produccion_interna' : workOrder.status,
+      });
+      await loadLogs();
+    } catch {
+      setError('Error al actualizar información de compras');
+    } finally {
+      setSavingCompras(false);
+    }
+  }
 
   async function handleDeleteOT() {
     setDeleting(true);
@@ -811,6 +844,95 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
                         + Agregar Link
                       </button>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sección de Materia Prima & Compras */}
+              <div className="glass-light rounded-xl p-4 space-y-3 border border-amber-500/30 bg-amber-950/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+                      Materia Prima & Compras
+                    </h3>
+                  </div>
+                  {workOrder.materialExistente ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                      ♻️ Material Existente (Stock/Sobrante)
+                    </span>
+                  ) : workOrder.status === 'compras_mp' ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                      🛒 En Espera de Materia Prima
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      ✓ Material Disponible
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xs space-y-1 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                  <p className="text-slate-400">Material requerido: <strong className="text-white">{workOrder.material || 'No especificado'}</strong></p>
+                  {workOrder.notasCompras && (
+                    <p className="text-slate-300 mt-1 italic bg-amber-950/30 p-2 rounded border border-amber-500/20">
+                      <strong>Nota de Compras:</strong> {workOrder.notasCompras}
+                    </p>
+                  )}
+                </div>
+
+                {/* Acciones de Compras */}
+                {(userData?.role === 'compras' || userData?.role === 'admin' || userData?.role === 'supervisor') && (
+                  <div className="space-y-2 pt-1 border-t border-slate-800">
+                    <p className="text-[11px] text-slate-400 font-semibold">Gestión de Compras / Taller:</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={savingCompras}
+                        onClick={() => handleSaveCompras(!workOrder.materialExistente, workOrder.status === 'compras_mp')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                          workOrder.materialExistente
+                            ? 'bg-slate-800 text-slate-300 border-slate-700'
+                            : 'bg-teal-950/60 hover:bg-teal-900 border-teal-500/40 text-teal-300'
+                        }`}
+                      >
+                        ♻️ {workOrder.materialExistente ? 'Quitar Marca de Sobrante' : 'Marcar Material Existente (Sobrante)'}
+                      </button>
+
+                      {workOrder.status === 'compras_mp' && (
+                        <button
+                          type="button"
+                          disabled={savingCompras}
+                          onClick={() => handleSaveCompras(workOrder.materialExistente, true)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/30"
+                        >
+                          📦 Material Comprado / Listo &rarr; Enviar a Producción
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 pt-2">
+                      <label className="block text-[11px] text-slate-400 font-medium">
+                        Comentario / Nota de Compras (ej: "Se usará tramo sobrante de 2 metros"):
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={notasComprasInput}
+                          onChange={(e) => setNotasComprasInput(e.target.value)}
+                          placeholder="Escribe un comentario de compras..."
+                          className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <button
+                          type="button"
+                          disabled={savingCompras || !notasComprasInput.trim()}
+                          onClick={() => handleSaveCompras()}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          {savingCompras ? 'Guardando...' : 'Guardar Comentario'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
