@@ -17,9 +17,9 @@ export default function WorkloadCards({
   users,
   onSelectOT,
 }: WorkloadCardsProps) {
-  // Filtrar técnicos / operadores / supervisores / producción
-  const techUsers = useMemo(
-    () => users.filter((u) => u.role === 'tecnico' || u.role === 'supervisor' || u.role === 'produccion'),
+  // Filtrar todos los usuarios activos
+  const allActiveUsers = useMemo(
+    () => users.filter((u) => u.isActive !== false),
     [users]
   );
 
@@ -29,14 +29,14 @@ export default function WorkloadCards({
     [workOrders]
   );
 
-  // Agrupar OTs por técnico asignado
+  // Agrupar OTs por técnico / usuario asignado
   const workloadByTech = useMemo(() => {
     const map: Record<
       string,
       { user: AppUser; ots: WorkOrder[]; totalPiezas: number; piezasProcesadas: number }
     > = {};
 
-    techUsers.forEach((u) => {
+    allActiveUsers.forEach((u) => {
       map[u.uid] = {
         user: u,
         ots: [],
@@ -49,17 +49,29 @@ export default function WorkloadCards({
     const unassigned: WorkOrder[] = [];
 
     activeOTs.forEach((ot) => {
-      if (ot.asignadoA && map[ot.asignadoA]) {
-        map[ot.asignadoA].ots.push(ot);
-        map[ot.asignadoA].totalPiezas += ot.totalPiezas;
-        map[ot.asignadoA].piezasProcesadas += ot.piezasProcesadas;
+      // Buscar por UID o por Nombre Desnormalizado
+      let targetUid = ot.asignadoA;
+      if (!targetUid && ot.asignadoNombre) {
+        const found = allActiveUsers.find((u) => u.displayName.toLowerCase() === ot.asignadoNombre?.toLowerCase());
+        if (found) targetUid = found.uid;
+      }
+
+      if (targetUid && map[targetUid]) {
+        map[targetUid].ots.push(ot);
+        map[targetUid].totalPiezas += ot.totalPiezas;
+        map[targetUid].piezasProcesadas += ot.piezasProcesadas;
       } else {
         unassigned.push(ot);
       }
     });
 
-    return { map, unassigned };
-  }, [techUsers, activeOTs]);
+    // Filtrar para mostrar usuarios que tengan OTs asignadas o sean de roles operativos
+    const relevantUsers = allActiveUsers.filter(
+      (u) => map[u.uid]?.ots.length > 0 || u.role === 'tecnico' || u.role === 'produccion' || u.role === 'supervisor'
+    );
+
+    return { map, unassigned, relevantUsers };
+  }, [allActiveUsers, activeOTs]);
 
   // Carga de Compras (OCs activas y OTs en compras_mp)
   const comprasData = useMemo(() => {
@@ -81,7 +93,7 @@ export default function WorkloadCards({
             <h2 className="text-base font-bold text-white">Carga de Trabajo por Técnico / Operador</h2>
           </div>
           <span className="text-xs text-slate-400">
-            {techUsers.length} técnicos registrados • {activeOTs.length} OTs en proceso
+            {allActiveUsers.length} usuarios registrados • {activeOTs.length} OTs en proceso
           </span>
         </div>
 
@@ -117,7 +129,7 @@ export default function WorkloadCards({
 
         {/* Tarjetas de Técnicos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {techUsers.map((u) => {
+          {workloadByTech.relevantUsers.map((u) => {
             const data = workloadByTech.map[u.uid];
             const otCount = data.ots.length;
             const pendientes = data.totalPiezas - data.piezasProcesadas;

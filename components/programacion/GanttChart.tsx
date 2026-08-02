@@ -21,9 +21,9 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
   const [baseDate, setBaseDate] = useState<Date>(new Date());
   const [filterTechUid, setFilterTechUid] = useState<string>('todos');
 
-  // Técnicos / Operadores / Supervisores
-  const techUsers = useMemo(
-    () => users.filter((u) => u.role === 'tecnico' || u.role === 'supervisor' || u.role === 'produccion'),
+  // Todos los usuarios activos (incluyendo Admins que tengan OTs asignadas)
+  const allActiveUsers = useMemo(
+    () => users.filter((u) => u.isActive !== false),
     [users]
   );
 
@@ -34,23 +34,27 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       .filter((o) => filterTechUid === 'todos' || o.asignadoA === filterTechUid);
   }, [workOrders, filterTechUid]);
 
-  // Agrupar OTs por técnico
+  // Agrupar OTs por usuario / técnico
   const techRows = useMemo(() => {
     const list: { user?: AppUser; label: string; ots: WorkOrder[] }[] = [];
 
-    // Técnicos conocidos
-    techUsers.forEach((u) => {
+    // Usuarios con OTs o roles operativos
+    allActiveUsers.forEach((u) => {
       const otsOfTech = activeOTs.filter(
         (o) =>
           (u.uid && o.asignadoA === u.uid) ||
           (u.displayName && o.asignadoNombre?.toLowerCase() === u.displayName.toLowerCase())
       );
-      if (filterTechUid === 'todos' || filterTechUid === u.uid) {
-        list.push({
-          user: u,
-          label: u.displayName,
-          ots: otsOfTech,
-        });
+      
+      // Mostrar la fila si el usuario tiene OTs asignadas o si es un rol operativo
+      if (otsOfTech.length > 0 || u.role === 'tecnico' || u.role === 'produccion' || u.role === 'supervisor') {
+        if (filterTechUid === 'todos' || filterTechUid === u.uid) {
+          list.push({
+            user: u,
+            label: u.displayName,
+            ots: otsOfTech,
+          });
+        }
       }
     });
 
@@ -64,7 +68,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
     }
 
     return list;
-  }, [techUsers, activeOTs, filterTechUid]);
+  }, [allActiveUsers, activeOTs, filterTechUid]);
 
   // Generar intervalo de días para Semana (7 días) y Mes (30 días)
   const daysInterval = useMemo(() => {
@@ -104,8 +108,8 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
               onChange={(e) => setFilterTechUid(e.target.value)}
               className="bg-transparent text-white focus:outline-none cursor-pointer"
             >
-              <option value="todos" className="bg-slate-900">Todos los Técnicos</option>
-              {techUsers.map((t) => (
+              <option value="todos" className="bg-slate-900">Todos los Usuarios</option>
+              {allActiveUsers.map((t) => (
                 <option key={t.uid} value={t.uid} className="bg-slate-900">
                   {t.displayName} ({t.role})
                 </option>
