@@ -2,8 +2,9 @@
 
 import { WorkOrder } from '@/lib/types';
 import { useWorkOrders } from '@/lib/hooks/useWorkOrders';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { getUrgency } from '@/lib/utils/urgency';
-import { AlertTriangle, Clock, CheckCircle, Package, PauseCircle } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Package, PauseCircle, User } from 'lucide-react';
 
 interface KPICardsProps {
   activeFilter?: string | null;
@@ -12,10 +13,17 @@ interface KPICardsProps {
 
 export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps) {
   const { workOrders } = useWorkOrders();
+  const { userData } = useAuth();
 
   const active = workOrders.filter(
     (o) => o.status !== 'completada' && o.status !== 'cancelada'
   );
+
+  const misOTsCount = active.filter(
+    (o) =>
+      (userData?.uid && o.asignadoA === userData.uid) ||
+      (userData?.displayName && o.asignadoNombre?.toLowerCase() === userData.displayName.toLowerCase())
+  ).length;
 
   const criticas = active.filter(
     (o) => o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'rojo'
@@ -41,6 +49,16 @@ export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps
   const listasParaEntrega = active.filter((o) => o.status === 'calidad_envio').length;
 
   const cards = [
+    {
+      id: 'mis_ots',
+      label: 'Mis OTs Asignadas',
+      value: misOTsCount,
+      icon: User,
+      color: 'from-emerald-500/20 to-teal-600/10 border-emerald-500/30',
+      iconColor: 'text-emerald-400',
+      valueColor: 'text-emerald-400',
+      pulse: misOTsCount > 0,
+    },
     {
       id: 'criticas',
       label: 'OTs Críticas',

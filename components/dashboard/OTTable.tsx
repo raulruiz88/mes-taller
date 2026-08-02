@@ -7,7 +7,7 @@ import { getUrgency } from '@/lib/utils/urgency';
 import UrgencyBadge from './UrgencyBadge';
 import ProgressBar from './ProgressBar';
 import OTDrawer from './OTDrawer';
-import { ChevronRight, Filter, Search, History, Zap, PauseCircle } from 'lucide-react';
+import { ChevronRight, Filter, Search, History, Zap, PauseCircle, User } from 'lucide-react';
 
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -31,7 +31,7 @@ const STATUS_FILTER_OPTIONS: { value: OTStatus | 'todas'; label: string }[] = [
 ];
 
 export default function OTTable({ workOrders, loading, cardFilter, onClearCardFilter }: OTTableProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, userData } = useAuth();
   const [selectedOT, setSelectedOT] = useState<WorkOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<OTStatus | 'todas'>('todas');
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +52,12 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
   const filtered = baseList
     .filter((o) => {
       if (!cardFilter || showHistory) return true;
+      if (cardFilter === 'mis_ots') {
+        return (
+          (userData?.uid && o.asignadoA === userData.uid) ||
+          (userData?.displayName && o.asignadoNombre?.toLowerCase() === userData.displayName.toLowerCase())
+        );
+      }
       if (cardFilter === 'criticas') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'rojo';
       if (cardFilter === 'urgentes') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'amarillo';
       if (cardFilter === 'pausa') return o.status === 'en_pausa' || Boolean(o.esPausada);
@@ -66,6 +72,7 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
         o.folio.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.cliente.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (o.asignadoNombre && o.asignadoNombre.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (o.motivoPausa && o.motivoPausa.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
@@ -199,6 +206,16 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
                     <span className="text-slate-500 text-xs">•</span>
                     <span className="text-xs text-slate-400">{ot.ocFolio}</span>
                     <UrgencyBadge workOrder={ot} size="sm" />
+                    {ot.asignadoNombre ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                        <User className="w-3 h-3 text-emerald-400" />
+                        {ot.asignadoNombre}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-500 font-medium">
+                        Sin Asignar
+                      </span>
+                    )}
                     {(ot.status === 'en_pausa' || ot.esPausada) && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium flex items-center gap-1">
                         <PauseCircle className="w-3 h-3 text-purple-400" />
