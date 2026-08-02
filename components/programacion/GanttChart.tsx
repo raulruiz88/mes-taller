@@ -34,11 +34,10 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       .filter((o) => filterTechUid === 'todos' || o.asignadoA === filterTechUid);
   }, [workOrders, filterTechUid]);
 
-  // Agrupar OTs por usuario / técnico
-  const techRows = useMemo(() => {
-    const list: { user?: AppUser; label: string; ots: WorkOrder[] }[] = [];
+  // Agrupar OTs por usuario / técnico (filtrando usuarios con 0 OTs)
+  const { assignedUserRows, unassignedRow } = useMemo(() => {
+    const assignedList: { user?: AppUser; label: string; ots: WorkOrder[] }[] = [];
 
-    // Usuarios con OTs o roles operativos
     allActiveUsers.forEach((u) => {
       const otsOfTech = activeOTs.filter(
         (o) =>
@@ -46,10 +45,10 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
           (u.displayName && o.asignadoNombre?.toLowerCase() === u.displayName.toLowerCase())
       );
       
-      // Mostrar la fila si el usuario tiene OTs asignadas o si es un rol operativo
-      if (otsOfTech.length > 0 || u.role === 'tecnico' || u.role === 'produccion' || u.role === 'supervisor') {
+      // Mostrar ÚNICAMENTE usuarios que tienen OTs asignadas actualmente (otsOfTech.length > 0)
+      if (otsOfTech.length > 0) {
         if (filterTechUid === 'todos' || filterTechUid === u.uid) {
-          list.push({
+          assignedList.push({
             user: u,
             label: u.displayName,
             ots: otsOfTech,
@@ -58,16 +57,17 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       }
     });
 
-    // Fila para OTs sin asignar
+    // Fila independiente para OTs sin asignar
     const unassignedOTs = activeOTs.filter((o) => !o.asignadoA && !o.asignadoNombre);
+    let unassigned: { label: string; ots: WorkOrder[] } | null = null;
     if (unassignedOTs.length > 0 && filterTechUid === 'todos') {
-      list.push({
+      unassigned = {
         label: '⚠️ Sin Asignar a Técnico',
         ots: unassignedOTs,
-      });
+      };
     }
 
-    return list;
+    return { assignedUserRows: assignedList, unassignedRow: unassigned };
   }, [allActiveUsers, activeOTs, filterTechUid]);
 
   // Generar intervalo de días para Semana (7 días) y Mes (30 días)
@@ -84,7 +84,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
   }, [viewMode, baseDate]);
 
   return (
-    <div className="glass rounded-2xl p-6 border border-slate-800 space-y-6">
+    <div className="glass rounded-2xl p-6 border border-slate-800 space-y-6 overflow-hidden">
       {/* Controls & Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
@@ -182,7 +182,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       {/* ── MODO 1: HOY (VISTA DETALLADA COMPLETA POR TÉCNICO) ── */}
       {viewMode === 'hoy' && (
         <div className="space-y-6">
-          {techRows.map((row) => (
+          {assignedUserRows.map((row) => (
             <div key={row.label} className="glass-light rounded-2xl p-5 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <div className="flex items-center gap-2">
@@ -199,64 +199,91 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                 </span>
               </div>
 
-              {row.ots.length === 0 ? (
-                <p className="text-xs text-slate-500 italic py-2">No tiene trabajos asignados en este momento.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {row.ots.map((ot) => {
-                    const urgency = getUrgency(ot.fechaEntrega, ot.status);
-                    const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {row.ots.map((ot) => {
+                  const urgency = getUrgency(ot.fechaEntrega, ot.status);
 
-                    return (
-                      <div
-                        key={ot.id}
-                        onClick={() => onSelectOT(ot)}
-                        className="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 p-4 rounded-xl cursor-pointer transition-all space-y-2 group hover:border-blue-500/50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-bold text-blue-400">{ot.folio}</span>
-                          {ot.status === 'en_pausa' ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium flex items-center gap-1">
-                              <PauseCircle className="w-3 h-3" /> Pausada
-                            </span>
-                          ) : (
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                              urgency === 'rojo' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                              urgency === 'amarillo' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                              'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            }`}>
-                              {urgency === 'rojo' ? 'CRÍTICA' : urgency === 'amarillo' ? 'URGENTE' : 'EN TIEMPO'}
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-white font-semibold line-clamp-2">{ot.descripcion}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Cliente: <strong className="text-slate-300">{ot.cliente}</strong></p>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800 text-slate-400">
-                          <span>Piezas: <strong className="text-emerald-400">{ot.piezasProcesadas} / {ot.totalPiezas}</strong></span>
-                          <span>Entrega: <strong className="text-slate-200">{formatDate(ot.fechaEntrega)}</strong></span>
-                        </div>
+                  return (
+                    <div
+                      key={ot.id}
+                      onClick={() => onSelectOT(ot)}
+                      className="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 p-4 rounded-xl cursor-pointer transition-all space-y-2 group hover:border-blue-500/50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-blue-400">{ot.folio}</span>
+                        {ot.status === 'en_pausa' ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium flex items-center gap-1">
+                            <PauseCircle className="w-3 h-3" /> Pausada
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                            urgency === 'rojo' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                            urgency === 'amarillo' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}>
+                            {urgency === 'rojo' ? 'CRÍTICA' : urgency === 'amarillo' ? 'URGENTE' : 'EN TIEMPO'}
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      <div>
+                        <p className="text-xs text-white font-semibold line-clamp-2">{ot.descripcion}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Cliente: <strong className="text-slate-300">{ot.cliente}</strong></p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800 text-slate-400">
+                        <span>Piezas: <strong className="text-emerald-400">{ot.piezasProcesadas} / {ot.totalPiezas}</strong></span>
+                        <span>Entrega: <strong className="text-slate-200">{formatDate(ot.fechaEntrega)}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
+
+          {/* OTs Sin Asignar en Modo Hoy */}
+          {unassignedRow && (
+            <div className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                <h3 className="font-bold text-amber-300 text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  Órdenes Sin Asignar a Técnico ({unassignedRow.ots.length})
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {unassignedRow.ots.map((ot) => (
+                  <div
+                    key={ot.id}
+                    onClick={() => onSelectOT(ot)}
+                    className="bg-slate-900/90 hover:bg-slate-900 border border-amber-500/40 p-4 rounded-xl cursor-pointer transition-all space-y-2 group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-amber-400">{ot.folio}</span>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
+                        Pendiente
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-white font-semibold line-clamp-2">{ot.descripcion}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Cliente: <strong className="text-slate-300">{ot.cliente}</strong></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* ── MODO 2 & 3: SEMANA (7d) Y MES (30d) ── */}
-      {/* ── MODO 2 & 3: SEMANA (7d) Y MES (30d) ── */}
       {(viewMode === 'semana' || viewMode === 'mes') && (
-        <div className="overflow-x-auto">
-          <div className="min-w-[950px] space-y-2">
+        <div className="w-full overflow-x-auto pb-2">
+          <div className={`${viewMode === 'mes' ? 'min-w-[1650px]' : 'min-w-[950px]'} space-y-2 inline-block w-full`}>
             {/* Class de Grilla Unificada (Alineación Pixel-Perfect entre Header y Filas) */}
             {(() => {
-              const numDays = daysInterval.length;
               const gridStyle = {
                 display: 'grid',
                 gridTemplateColumns: viewMode === 'semana' 
@@ -294,9 +321,9 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                     })}
                   </div>
 
-                  {/* Filas por Técnico */}
+                  {/* Filas por Técnico Asignado */}
                   <div className="space-y-2">
-                    {techRows.map((row) => (
+                    {assignedUserRows.map((row) => (
                       <div
                         key={row.label}
                         style={gridStyle}
@@ -310,7 +337,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                             </div>
                             <div className="min-w-0">
                               <p className="text-xs font-bold text-white truncate">{row.label}</p>
-                              <p className="text-[10px] text-slate-400">
+                              <p className="text-[10px] text-slate-400 font-semibold">
                                 {row.ots.length} OT{row.ots.length !== 1 ? 's' : ''}
                               </p>
                             </div>
@@ -338,8 +365,8 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                           return (
                             <div
                               key={idx}
-                              className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 rounded-lg ${
-                                isToday ? 'bg-blue-950/20 border border-blue-500/20' : ''
+                              className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 ${
+                                isToday ? 'bg-blue-500/10 border-x border-blue-500/20' : ''
                               }`}
                             >
                               {otsOnDay.map((ot) => {
@@ -371,6 +398,76 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                         })}
                       </div>
                     ))}
+
+                    {/* Fila Separada para Trabajos Sin Asignar */}
+                    {unassignedRow && (
+                      <div className="pt-3 border-t border-slate-800 space-y-2">
+                        <div
+                          style={gridStyle}
+                          className="bg-amber-950/20 rounded-xl p-2 border border-amber-500/30 items-center"
+                        >
+                          {/* Columna Izquierda */}
+                          <div className="pr-3 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-bold text-amber-400 text-xs shrink-0">
+                                ⚠️
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-amber-300 truncate">Sin Asignar</p>
+                                <p className="text-[10px] text-amber-400/80 font-semibold">
+                                  {unassignedRow.ots.length} OT{unassignedRow.ots.length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Grilla de Días */}
+                          {daysInterval.map((day, idx) => {
+                            const isToday = isSameDay(day, new Date());
+                            const otsOnDay = unassignedRow.ots.filter((ot) => {
+                              const deliveryDate = ot.fechaEntrega
+                                ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
+                                : null;
+                              
+                              if (isToday) {
+                                if (!deliveryDate) return true;
+                                const isOverdue = differenceInDays(new Date(), deliveryDate) > 0 && !isSameDay(deliveryDate, new Date());
+                                if (isOverdue) return true;
+                              }
+
+                              return deliveryDate ? isSameDay(day, deliveryDate) : false;
+                            });
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 ${
+                                  isToday ? 'bg-amber-500/10 border-x border-amber-500/30' : ''
+                                }`}
+                              >
+                                {otsOnDay.map((ot) => {
+                                  const urgency = getUrgency(ot.fechaEntrega, ot.status);
+                                  const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+
+                                  let badgeColor = 'bg-amber-600 text-amber-100 border-amber-400/60 hover:bg-amber-500';
+
+                                  return (
+                                    <button
+                                      key={ot.id}
+                                      onClick={() => onSelectOT(ot)}
+                                      title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
+                                      className={`w-full py-1 rounded-lg border text-[11px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
+                                    >
+                                      {shortFolio}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               );
