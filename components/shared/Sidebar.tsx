@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Building2,
   Calendar,
+  UserCheck,
   X,
 } from 'lucide-react';
 
@@ -27,6 +28,12 @@ const navItems = [
     href: '/dashboard',
     icon: LayoutDashboard,
     label: 'Dashboard',
+    roles: ['admin', 'produccion', 'compras', 'tecnico', 'supervisor'],
+  },
+  {
+    href: '/dashboard/mis-ots',
+    icon: UserCheck,
+    label: 'Mis OTs Asignadas',
     roles: ['admin', 'produccion', 'compras', 'tecnico', 'supervisor'],
   },
   {

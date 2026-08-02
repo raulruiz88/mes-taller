@@ -50,16 +50,6 @@ export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps
 
   const cards = [
     {
-      id: 'mis_ots',
-      label: 'Mis OTs Asignadas',
-      value: misOTsCount,
-      icon: User,
-      color: 'from-emerald-500/20 to-teal-600/10 border-emerald-500/30',
-      iconColor: 'text-emerald-400',
-      valueColor: 'text-emerald-400',
-      pulse: misOTsCount > 0,
-    },
-    {
       id: 'criticas',
       label: 'OTs Críticas',
       value: criticas,
