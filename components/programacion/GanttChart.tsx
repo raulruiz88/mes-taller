@@ -304,16 +304,17 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                       return (
                         <div
                           key={idx}
-                          className={`py-1.5 rounded-xl text-center transition-colors ${
+                          className={`py-1 rounded-lg text-center transition-all ${
                             isToday
-                              ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30'
+                              ? 'bg-blue-950/70 border-t-2 border-x border-b border-t-blue-400 border-x-blue-500/30 border-b-blue-500/30 text-blue-300 shadow-sm'
                               : 'bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800'
                           }`}
                         >
-                          <p className="text-[9px] uppercase tracking-tighter opacity-80">
+                          <p className={`text-[9px] uppercase tracking-tighter font-semibold ${isToday ? 'text-blue-400 flex items-center justify-center gap-0.5' : 'text-slate-400 opacity-80'}`}>
+                            {isToday && <span className="w-1 h-1 rounded-full bg-blue-400 animate-pulse" />}
                             {format(day, viewMode === 'mes' ? 'EE' : 'EEE', { locale: es })}
                           </p>
-                          <p className="text-xs font-mono font-bold">
+                          <p className={`text-xs font-mono font-bold ${isToday ? 'text-white font-extrabold' : 'text-slate-300'}`}>
                             {format(day, 'dd')}
                           </p>
                         </div>

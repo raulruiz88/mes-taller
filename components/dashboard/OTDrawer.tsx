@@ -23,6 +23,8 @@ import {
   pausarWorkOrder,
   reanudarWorkOrder,
   asignarWorkOrder,
+  asignarWorkOrderMultiple,
+  deleteWorkOrder,
 } from '@/lib/firebase/firestore/work-orders';
 import { getAllUsers } from '@/lib/firebase/firestore/users';
 import { parseLocalDate } from '@/lib/utils';
@@ -148,32 +150,66 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
     }
   }, [workOrder]);
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     getAllUsers().then((users) => {
       setTechnicians(users.filter((u) => u.isActive !== false));
     }).catch(() => {});
   }, []);
 
-  async function handleAssignTechnician(techUid: string) {
-    const selectedTech = technicians.find((t) => t.uid === techUid);
-    const techName = selectedTech ? selectedTech.displayName : '';
+  async function handleDeleteOT() {
+    setDeleting(true);
+    try {
+      await deleteWorkOrder(workOrder.id);
+      onClose();
+    } catch {
+      setError('Error al eliminar la OT.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleToggleTechnician(tech: { uid: string; displayName: string }) {
+    const currentUids = workOrder.asignadosA || (workOrder.asignadoA ? [workOrder.asignadoA] : []);
+    
+    let newTechs: { uid: string; displayName: string }[] = [];
+    const isSelected = currentUids.includes(tech.uid);
+
+    if (isSelected) {
+      newTechs = technicians
+        .filter((t) => currentUids.includes(t.uid) && t.uid !== tech.uid)
+        .map((t) => ({ uid: t.uid, displayName: t.displayName }));
+    } else {
+      const already = technicians
+        .filter((t) => currentUids.includes(t.uid))
+        .map((t) => ({ uid: t.uid, displayName: t.displayName }));
+      newTechs = [...already, { uid: tech.uid, displayName: tech.displayName }];
+    }
+
+    const uids = newTechs.map((t) => t.uid);
+    const nombres = newTechs.map((t) => t.displayName);
+    const primaryUid = uids[0] || '';
+    const primaryNombre = nombres.join(', ') || 'Sin Asignar';
 
     try {
-      await asignarWorkOrder(
+      await asignarWorkOrderMultiple(
         workOrder.id,
-        techUid,
-        techName,
+        newTechs,
         userData?.uid || '',
         userData?.displayName || 'Usuario'
       );
       onUpdate({
         ...workOrder,
-        asignadoA: techUid,
-        asignadoNombre: techName,
+        asignadoA: primaryUid,
+        asignadoNombre: primaryNombre,
+        asignadosA: uids,
+        asignadosNombres: nombres,
       });
       await loadLogs();
     } catch {
-      setError('Error al asignar la OT al técnico.');
+      setError('Error al actualizar asignaciones.');
     }
   }
 
@@ -446,18 +482,27 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
             )}
 
             {canEdit && (
-              <button
-                id="edit-ot-toggle-btn"
-                onClick={() => setIsEditing(!isEditing)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                  isEditing
-                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-                }`}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                {isEditing ? 'Cancelar' : 'Editar OT'}
-              </button>
+              <>
+                <button
+                  id="edit-ot-toggle-btn"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                    isEditing
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  {isEditing ? 'Cancelar' : 'Editar OT'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  title="Eliminar OT"
+                  className="w-8 h-8 rounded-xl bg-red-950/40 hover:bg-red-900 border border-red-500/30 flex items-center justify-center text-red-400 hover:text-white transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </>
             )}
             <button
               id="drawer-close-btn"
@@ -468,6 +513,41 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
             </button>
           </div>
         </div>
+
+        {/* Modal Confirmación de Eliminación de OT */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-red-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl shadow-red-950/50 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3 text-red-400">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">¿Eliminar Orden de Trabajo?</h3>
+                  <p className="font-mono text-xs text-red-400 font-semibold">{workOrder.folio}</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-300">
+                Esta acción eliminará de forma permanente la orden <strong>{workOrder.folio}</strong> ({workOrder.descripcion}). Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteOT}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 disabled:opacity-50"
+                >
+                  {deleting ? 'Eliminando...' : 'Sí, Eliminar Definitivamente'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -657,30 +737,44 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
                 <p className="text-white font-medium">{workOrder.descripcion}</p>
               </div>
 
-              {/* Técnico Asignado */}
-              <div className="glass-light rounded-xl p-4 space-y-2">
+              {/* Técnico(s) Asignado(s) */}
+              <div className="glass-light rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
                     <User className="w-4 h-4 text-emerald-400" />
-                    Técnico / Operador Asignado:
+                    Técnico(s) / Responsables Asignados:
                   </span>
                   <span className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
-                    {workOrder.asignadoNombre || 'Sin Asignar'}
+                    {workOrder.asignadosNombres?.join(', ') || workOrder.asignadoNombre || 'Sin Asignar'}
                   </span>
                 </div>
                 {(userData?.role === 'admin' || userData?.role === 'supervisor' || userData?.role === 'produccion') && (
-                  <select
-                    value={workOrder.asignadoA || ''}
-                    onChange={(e) => handleAssignTechnician(e.target.value)}
-                    className="w-full mt-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Asignar Técnico --</option>
-                    {technicians.map((t) => (
-                      <option key={t.uid} value={t.uid}>
-                        {t.displayName} ({t.role === 'tecnico' ? 'Técnico' : t.role === 'supervisor' ? 'Supervisor' : t.role})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[11px] text-slate-400 font-medium">Selecciona 1 o más responsables para esta OT:</p>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-900/80 rounded-xl border border-slate-800">
+                      {technicians.map((t) => {
+                        const currentUids = workOrder.asignadosA || (workOrder.asignadoA ? [workOrder.asignadoA] : []);
+                        const isAssigned = currentUids.includes(t.uid);
+
+                        return (
+                          <button
+                            key={t.uid}
+                            type="button"
+                            onClick={() => handleToggleTechnician({ uid: t.uid, displayName: t.displayName })}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                              isAssigned
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm shadow-emerald-500/20 font-bold'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
+                            }`}
+                          >
+                            <span>{isAssigned ? '✓' : '+'}</span>
+                            <span>{t.displayName}</span>
+                            <span className="text-[9px] opacity-70">({t.role === 'tecnico' ? 'Técnico' : t.role})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
 

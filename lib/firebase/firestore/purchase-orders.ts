@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -121,4 +122,22 @@ export function subscribePurchaseOrders(
   return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PurchaseOrder)));
   });
+}
+
+export async function deletePurchaseOrder(ocId: string): Promise<void> {
+  const ocRef = doc(db, COL, ocId);
+  const snap = await getDoc(ocRef);
+  if (!snap.exists()) return;
+
+  // Eliminar la OC
+  await deleteDoc(ocRef);
+
+  // Eliminar o desvincular OTs asociadas
+  try {
+    const { getWorkOrdersByOC, deleteWorkOrder } = await import('./work-orders');
+    const ots = await getWorkOrdersByOC(ocId);
+    await Promise.all(ots.map((ot) => deleteWorkOrder(ot.id)));
+  } catch {
+    // Ignorar si falla cascada
+  }
 }

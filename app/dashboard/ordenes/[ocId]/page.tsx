@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getPurchaseOrder } from '@/lib/firebase/firestore/purchase-orders';
+import { getPurchaseOrder, deletePurchaseOrder } from '@/lib/firebase/firestore/purchase-orders';
 import { getWorkOrdersByOC } from '@/lib/firebase/firestore/work-orders';
 import { PurchaseOrder, WorkOrder } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -10,7 +10,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import UrgencyBadge from '@/components/dashboard/UrgencyBadge';
 import ProgressBar from '@/components/dashboard/ProgressBar';
 import { OT_STATUS_LABELS } from '@/lib/types';
-import { ArrowLeft, Plus, Clock, CheckCircle, Edit3, ExternalLink, FileCode } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, CheckCircle, Edit3, ExternalLink, FileCode, Trash2 } from 'lucide-react';
 import EditOCModal from '@/components/ordenes/EditOCModal';
 import Link from 'next/link';
 
@@ -22,6 +22,8 @@ export default function OCDetailPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function loadData() {
     const [ocData, ots] = await Promise.all([
@@ -31,6 +33,17 @@ export default function OCDetailPage() {
     setOC(ocData);
     setWorkOrders(ots);
     setLoading(false);
+  }
+
+  async function handleDeleteOC() {
+    setDeleting(true);
+    try {
+      await deletePurchaseOrder(ocId);
+      router.push('/dashboard/ordenes');
+    } catch {
+      alert('Error al eliminar la Orden de Compra');
+      setDeleting(false);
+    }
   }
 
   useEffect(() => {
@@ -65,6 +78,41 @@ export default function OCDetailPage() {
         />
       )}
 
+      {/* Delete OC Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-red-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl shadow-red-950/50 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">¿Eliminar Orden de Compra?</h3>
+                <p className="font-mono text-xs text-red-400 font-semibold">{oc.folio}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300">
+              Esta acción eliminará de forma permanente la Orden de Compra <strong>{oc.folio}</strong> ({oc.cliente}) y todas sus OTs asociadas. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteOC}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 disabled:opacity-50"
+              >
+                {deleting ? 'Eliminando...' : 'Sí, Eliminar Definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -91,13 +139,23 @@ export default function OCDetailPage() {
 
         <div className="flex items-center gap-3 self-end sm:self-auto">
           {isAdmin && (
-            <button
-              onClick={() => setEditModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              Editar OC
-            </button>
+            <>
+              <button
+                onClick={() => setEditModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Editar OC
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                title="Eliminar OC"
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-950/40 hover:bg-red-900 border border-red-500/30 text-red-400 hover:text-white rounded-xl text-xs font-semibold transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar OC
+              </button>
+            </>
           )}
           {isAdmin && (
             <div className="text-right">

@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -237,6 +238,71 @@ export async function asignarWorkOrder(
       }
     } catch {
       // Ignorar
+    }
+  }
+}
+
+export async function asignarWorkOrderMultiple(
+  otId: string,
+  tecnicos: { uid: string; displayName: string }[],
+  asignadoPorUid: string,
+  asignadoPorNombre: string
+): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const changeRef = doc(collection(db, COL, otId, 'changelog'));
+
+  const uids = tecnicos.map((t) => t.uid);
+  const nombres = tecnicos.map((t) => t.displayName);
+  const primaryUid = uids[0] || '';
+  const primaryNombre = nombres.join(', ') || 'Sin Asignar';
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(otRef);
+    if (!snap.exists()) throw new Error('OT no encontrada');
+
+    const otData = snap.data();
+
+    tx.update(otRef, {
+      asignadoA: primaryUid,
+      asignadoNombre: primaryNombre,
+      asignadosA: uids,
+      asignadosNombres: nombres,
+      updatedAt: serverTimestamp(),
+    });
+
+    tx.set(changeRef, {
+      timestamp: serverTimestamp(),
+      usuarioUid: asignadoPorUid,
+      usuarioNombre: asignadoPorNombre,
+      campo: 'asignadosA',
+      valorAnterior: otData.asignadoNombre || 'Sin Asignar',
+      valorNuevo: primaryNombre,
+      accion: 'field_change',
+    } as any);
+  });
+}
+
+export async function deleteWorkOrder(otId: string): Promise<void> {
+  const otRef = doc(db, COL, otId);
+  const snap = await getDoc(otRef);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const ocId = data.ocId;
+
+  await deleteDoc(otRef);
+
+  if (ocId) {
+    const ocRef = doc(db, 'purchase_orders', ocId);
+    const ocSnap = await getDoc(ocRef);
+    if (ocSnap.exists()) {
+      const ocData = ocSnap.data();
+      const newTotal = Math.max(0, (ocData.totalOTs || 1) - 1);
+      const isCompleted = data.status === 'completada';
+      const newCompletadas = isCompleted ? Math.max(0, (ocData.otCompletadas || 1) - 1) : (ocData.otCompletadas || 0);
+      await updateDoc(ocRef, {
+        totalOTs: newTotal,
+        otCompletadas: newCompletadas,
+      });
     }
   }
 }

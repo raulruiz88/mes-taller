@@ -114,8 +114,10 @@ export interface WorkOrder {
   fechaEstimadaLlegadaMP?: Timestamp; // Fecha estimada de llegada de materia prima al taller
   planoURL?: string;
   notas?: string;
-  asignadoA?: string;      // uid
+  asignadoA?: string;      // uid (asignado principal o retrocompatible)
   asignadoNombre?: string; // nombre del técnico desnormalizado
+  asignadosA?: string[];    // uids de los usuarios asignados (soporta 1 o más)
+  asignadosNombres?: string[]; // nombres desnormalizados de los usuarios asignados
   creadoPor: string;       // uid
   updatedAt: Timestamp;
   operaciones?: OTOperation[]; // Operaciones de manufactura por OT
