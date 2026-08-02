@@ -24,6 +24,7 @@ import {
   Key,
   Factory,
   ShoppingBag,
+  Download,
 } from 'lucide-react';
 import { CENTROS_TRABAJO, DEFAULT_CATEGORIAS_GASTOS } from '@/lib/types';
 
@@ -223,6 +224,45 @@ export default function ConfiguracionPage() {
       }
     }
   }
+  const [exportingMaster, setExportingMaster] = useState(false);
+
+  async function handleExportAllMaster() {
+    setExportingMaster(true);
+    try {
+      const { collection, getDocs } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase/config');
+      const { getAllDirectExpenses } = await import('@/lib/firebase/firestore/expenses');
+      const { getCustomers } = await import('@/lib/firebase/firestore/customers');
+      const { getSuppliers } = await import('@/lib/firebase/firestore/suppliers');
+      const { exportMasterDatabaseToExcel } = await import('@/lib/utils/exportToExcel');
+
+      const [woSnap, poSnap, exps, custs, supps] = await Promise.all([
+        getDocs(collection(db, 'work_orders')),
+        getDocs(collection(db, 'purchase_orders')),
+        getAllDirectExpenses().catch(() => []),
+        getCustomers().catch(() => []),
+        getSuppliers().catch(() => []),
+      ]);
+
+      const wos = woSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+      const pos = poSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+
+      exportMasterDatabaseToExcel({
+        workOrders: wos,
+        purchaseOrders: pos,
+        expenses: exps,
+        fixedCosts: [],
+        customers: custs,
+        suppliers: supps,
+      });
+
+      toast({ message: 'Backup Master descargado en Excel', type: 'success' });
+    } catch {
+      toast({ message: 'Error al exportar base de datos', type: 'error' });
+    } finally {
+      setExportingMaster(false);
+    }
+  }
 
   const inputClass =
     'w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all';
@@ -250,13 +290,13 @@ export default function ConfiguracionPage() {
         <div className="flex bg-slate-800/60 border border-slate-700 rounded-xl p-1 gap-1 flex-wrap">
           <button
             onClick={() => setActiveTab('general')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'general'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Configuración General
+            General
           </button>
           <button
             onClick={() => setActiveTab('centros')}
@@ -297,6 +337,28 @@ export default function ConfiguracionPage() {
       {/* ── TAB 1: CONFIGURACIÓN GENERAL ──────────────────────────────────────── */}
       {activeTab === 'general' && (
         <div className="space-y-6">
+          {/* Exportación Master Única */}
+          <div className="glass rounded-2xl p-6 border border-emerald-500/30 bg-emerald-950/10 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="font-bold text-emerald-300 text-sm flex items-center gap-2">
+                  <Download className="w-5 h-5 text-emerald-400" />
+                  Exportación Master de Toda la Base de Datos
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Descarga con 1 solo clic un respaldo completo en Excel de todas las OCs, OTs, Compras, Clientes y Proveedores.
+                </p>
+              </div>
+              <button
+                onClick={handleExportAllMaster}
+                disabled={exportingMaster}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                {exportingMaster ? 'Generando Backup...' : 'Exportar TODO a Excel'}
+              </button>
+            </div>
+          </div>
           <div className="glass rounded-2xl p-6 space-y-5">
             <h2 className="font-semibold text-white text-sm">Datos del Taller</h2>
 

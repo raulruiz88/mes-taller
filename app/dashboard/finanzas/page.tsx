@@ -155,30 +155,6 @@ export default function FinanzasPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            id="export-finanzas-excel"
-            onClick={() => {
-              const invoices = cobrables.map((c) => ({
-                id: c.id,
-                folioFactura: c.facturaVenta || 'N/A',
-                folioOC: c.folio,
-                clienteNombre: c.cliente,
-                fechaEmision: c.fechaCreacion,
-                fechaVencimiento: c.fechaCompromiso,
-                subtotal: c.montoVenta,
-                iva: Math.round(c.montoVenta * 0.16),
-                total: Math.round(c.montoVenta * 1.16),
-                estatusPago: c.estadoCobro,
-                diasCartera: c.diasCobro || 0,
-              }));
-              exportFinancesToExcel(invoices as any, directExpenses, fixedCosts);
-            }}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-xl transition-all"
-          >
-            <Download className="w-4 h-4 text-emerald-400" />
-            Exportar P&L a Excel
-          </button>
-
           <select
             id="periodo-select"
             value={periodo}

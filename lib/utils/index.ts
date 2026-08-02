@@ -12,9 +12,9 @@ export function formatCurrency(
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount || 0);
 }
 
 export function parseLocalDate(dateInput: string | Date | null | undefined): Date {

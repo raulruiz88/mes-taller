@@ -187,3 +187,61 @@ export function exportCustomersToExcel(customers: Customer[]) {
 
   downloadCSV('Catalogo_Clientes', headers, rows);
 }
+
+// 5. Master Backup Export (All Data from Configuración)
+export function exportMasterDatabaseToExcel(data: {
+  workOrders: WorkOrder[];
+  purchaseOrders: PurchaseOrder[];
+  expenses: DirectExpense[];
+  fixedCosts: FixedCost[];
+  customers: Customer[];
+  suppliers: Supplier[];
+}) {
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  // 1. Export OTs Master
+  exportWorkOrdersToExcel(data.workOrders, true);
+
+  // 2. Export OCs Master
+  setTimeout(() => {
+    const ocHeaders = ['Folio OC', 'OC Cliente', 'Cliente', 'Monto Venta', 'Moneda', 'Estatus', 'Total OTs', 'OTs Completadas', 'Fecha Compromiso'];
+    const ocRows = data.purchaseOrders.map((oc) => [
+      oc.folio,
+      oc.ocCliente || 'N/A',
+      oc.cliente,
+      oc.montoVenta,
+      oc.currency,
+      oc.status.toUpperCase(),
+      oc.totalOTs || 0,
+      oc.otCompletadas || 0,
+      oc.fechaCompromiso ? formatDate(oc.fechaCompromiso) : 'N/A',
+    ]);
+    downloadCSV(`Master_Ordenes_Compra_${dateStr}`, ocHeaders, ocRows);
+  }, 300);
+
+  // 3. Export Expenses Master
+  setTimeout(() => {
+    const expHeaders = ['ID Gasto', 'OT / OC', 'Proveedor', 'Categoría', 'Descripción', 'Monto', 'Factura', 'Pagado', 'Fecha'];
+    const expRows = data.expenses.map((exp) => [
+      exp.id,
+      exp.otFolio || exp.ocId || 'N/A',
+      exp.proveedor || 'N/A',
+      exp.categoria.toUpperCase(),
+      exp.descripcion,
+      exp.monto,
+      exp.factura || 'N/A',
+      exp.estaPagado ? 'SÍ' : 'NO',
+      exp.fecha ? formatDate(exp.fecha) : 'N/A',
+    ]);
+    downloadCSV(`Master_Gastos_Directos_${dateStr}`, expHeaders, expRows);
+  }, 600);
+
+  // 4. Export Customers & Suppliers
+  setTimeout(() => {
+    exportCustomersToExcel(data.customers);
+  }, 900);
+
+  setTimeout(() => {
+    exportSuppliersToExcel(data.suppliers);
+  }, 1200);
+}
