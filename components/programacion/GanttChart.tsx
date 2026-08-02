@@ -242,103 +242,124 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
       )}
 
       {/* ── MODO 2 & 3: SEMANA (7d) Y MES (30d) ── */}
+      {/* ── MODO 2 & 3: SEMANA (7d) Y MES (30d) ── */}
       {(viewMode === 'semana' || viewMode === 'mes') && (
         <div className="overflow-x-auto">
-          <div className="min-w-[850px] space-y-3">
-            {/* Header de Fechas */}
-            <div className="flex items-center border-b border-slate-800 pb-2 text-xs font-semibold text-slate-400">
-              <div className="w-56 shrink-0 pr-3">Técnico / Operador</div>
-              <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 text-center">
-                {daysInterval.map((day, idx) => {
-                  const isToday = isSameDay(day, new Date());
-                  return (
-                    <div
-                      key={idx}
-                      className={`py-1 rounded-lg transition-colors ${
-                        isToday
-                          ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/40'
-                          : 'hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <p className="text-[9px] uppercase tracking-tighter opacity-80">
-                        {format(day, viewMode === 'mes' ? 'EE' : 'EEE', { locale: es })}
-                      </p>
-                      <p className="text-xs font-mono font-bold">
-                        {format(day, 'dd')}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          <div className="min-w-[950px] space-y-2">
+            {/* Class de Grilla Unificada (Alineación Pixel-Perfect entre Header y Filas) */}
+            {(() => {
+              const numDays = daysInterval.length;
+              const gridStyle = {
+                display: 'grid',
+                gridTemplateColumns: viewMode === 'semana' 
+                  ? '220px repeat(7, minmax(0, 1fr))' 
+                  : '220px repeat(30, minmax(46px, 1fr))',
+                gap: '4px',
+              };
 
-            {/* Filas por Técnico */}
-            {techRows.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center glass-light rounded-xl p-3 border border-slate-800/80 hover:border-slate-700 transition-all"
-              >
-                {/* Columna Izquierda: Nombre del Técnico */}
-                <div className="w-56 shrink-0 pr-3 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-xs shrink-0">
-                      {row.label.charAt(0).toUpperCase()}
+              return (
+                <>
+                  {/* Header de Fechas */}
+                  <div style={gridStyle} className="border-b border-slate-800 pb-2 text-xs font-semibold text-slate-400 items-center">
+                    <div className="pr-3 text-slate-300 font-bold text-xs uppercase tracking-wider">
+                      Técnico / Operador
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{row.label}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {row.ots.length} OT{row.ots.length !== 1 ? 's' : ''} asignada{row.ots.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
+                    {daysInterval.map((day, idx) => {
+                      const isToday = isSameDay(day, new Date());
+                      return (
+                        <div
+                          key={idx}
+                          className={`py-1.5 rounded-xl text-center transition-colors ${
+                            isToday
+                              ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30'
+                              : 'bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800'
+                          }`}
+                        >
+                          <p className="text-[9px] uppercase tracking-tighter opacity-80">
+                            {format(day, viewMode === 'mes' ? 'EE' : 'EEE', { locale: es })}
+                          </p>
+                          <p className="text-xs font-mono font-bold">
+                            {format(day, 'dd')}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
 
-                {/* Grilla de Días en la Derecha */}
-                <div className="flex-1 grid grid-flow-col auto-cols-fr gap-1 items-center">
-                  {daysInterval.map((day, idx) => {
-                    // OTs activas cuya fecha de entrega cae en este día o están en proceso en esta fecha
-                    const otsOnDay = row.ots.filter((ot) => {
-                      const deliveryDate = ot.fechaEntrega
-                        ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
-                        : null;
-                      return deliveryDate && isSameDay(day, deliveryDate);
-                    });
+                  {/* Filas por Técnico */}
+                  <div className="space-y-2">
+                    {techRows.map((row) => (
+                      <div
+                        key={row.label}
+                        style={gridStyle}
+                        className="glass-light rounded-xl p-2 border border-slate-800/80 hover:border-slate-700 transition-all items-center"
+                      >
+                        {/* Columna Izquierda: Nombre del Técnico */}
+                        <div className="pr-3 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-xs shrink-0">
+                              {row.label.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{row.label}</p>
+                              <p className="text-[10px] text-slate-400">
+                                {row.ots.length} OT{row.ots.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    return (
-                      <div key={idx} className="min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5">
-                        {otsOnDay.map((ot) => {
-                          const urgency = getUrgency(ot.fechaEntrega, ot.status);
-                          // Extraer código corto (ej: "012" o "OT-012")
-                          const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
-                          const shortClient = ot.cliente.split(' ')[0];
-
-                          let badgeColor = 'bg-emerald-600/90 text-emerald-100 border-emerald-400/50 hover:bg-emerald-500';
-                          if (ot.status === 'en_pausa') {
-                            badgeColor = 'bg-purple-600/90 text-purple-100 border-purple-400/50 hover:bg-purple-500';
-                          } else if (urgency === 'rojo') {
-                            badgeColor = 'bg-red-600 text-white border-red-400 hover:bg-red-500 animate-pulse-slow';
-                          } else if (urgency === 'amarillo') {
-                            badgeColor = 'bg-amber-600/90 text-amber-100 border-amber-400/50 hover:bg-amber-500';
-                          }
+                        {/* Grilla de Días en la Derecha */}
+                        {daysInterval.map((day, idx) => {
+                          const isToday = isSameDay(day, new Date());
+                          // OTs activas cuya fecha de entrega cae en este día
+                          const otsOnDay = row.ots.filter((ot) => {
+                            const deliveryDate = ot.fechaEntrega
+                              ? ('toDate' in ot.fechaEntrega ? ot.fechaEntrega.toDate() : new Date(ot.fechaEntrega))
+                              : null;
+                            return deliveryDate && isSameDay(day, deliveryDate);
+                          });
 
                           return (
-                            <button
-                              key={ot.id}
-                              onClick={() => onSelectOT(ot)}
-                              title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
-                              className={`w-full text-left px-1.5 py-1 rounded-md border text-[10px] font-semibold transition-all shadow-sm truncate flex items-center justify-between gap-1 ${badgeColor}`}
+                            <div
+                              key={idx}
+                              className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 rounded-lg ${
+                                isToday ? 'bg-blue-950/20 border border-blue-500/20' : ''
+                              }`}
                             >
-                              <span className="font-mono font-bold shrink-0">{shortFolio}</span>
-                              <span className="truncate opacity-90 text-[9px]">{shortClient}</span>
-                            </button>
+                              {otsOnDay.map((ot) => {
+                                const urgency = getUrgency(ot.fechaEntrega, ot.status);
+                                const shortFolio = ot.folio.replace(/^OT-20\d\d-/, '');
+
+                                let badgeColor = 'bg-emerald-600 text-white border-emerald-400/60 hover:bg-emerald-500';
+                                if (ot.status === 'en_pausa') {
+                                  badgeColor = 'bg-purple-600 text-purple-100 border-purple-400/60 hover:bg-purple-500';
+                                } else if (urgency === 'rojo') {
+                                  badgeColor = 'bg-red-600 text-white border-red-400 hover:bg-red-500 animate-pulse-slow';
+                                } else if (urgency === 'amarillo') {
+                                  badgeColor = 'bg-amber-600 text-amber-100 border-amber-400/60 hover:bg-amber-500';
+                                }
+
+                                return (
+                                  <button
+                                    key={ot.id}
+                                    onClick={() => onSelectOT(ot)}
+                                    title={`${ot.folio}: ${ot.descripcion} (${ot.cliente}) | Entrega: ${formatDate(ot.fechaEntrega)}`}
+                                    className={`w-full py-1 rounded-lg border text-[11px] font-mono font-bold transition-all shadow-md flex items-center justify-center text-center truncate ${badgeColor}`}
+                                  >
+                                    {shortFolio}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           );
                         })}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
