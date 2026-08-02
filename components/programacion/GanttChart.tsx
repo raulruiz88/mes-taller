@@ -367,7 +367,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                             <div
                               key={idx}
                               className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 ${
-                                isToday ? 'bg-blue-500/10 border-x border-blue-500/20' : ''
+                                isToday ? 'border-l-2 border-l-blue-400 pl-1' : ''
                               }`}
                             >
                               {otsOnDay.map((ot) => {
@@ -445,7 +445,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
                               <div
                                 key={idx}
                                 className={`min-h-[44px] flex flex-col items-center justify-center gap-1 p-0.5 ${
-                                  isToday ? 'bg-amber-500/10 border-x border-amber-500/30' : ''
+                                  isToday ? 'border-l-2 border-l-amber-400 pl-1' : ''
                                 }`}
                               >
                                 {otsOnDay.map((ot) => {
