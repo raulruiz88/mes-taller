@@ -30,6 +30,7 @@ import {
 import { getAllUsers } from '@/lib/firebase/firestore/users';
 import { parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { sendEmailNotification, buildAssignEmailHTML } from '@/lib/notifications/email';
 import UrgencyBadge from './UrgencyBadge';
 import ProgressBar from './ProgressBar';
 import { v4 as uuidv4 } from 'uuid';
@@ -241,6 +242,17 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
         asignadosNombres: nombres,
       });
       await loadLogs();
+
+      if (!isSelected) {
+        const assignedUser = technicians.find((t) => t.uid === tech.uid);
+        if (assignedUser?.email) {
+          sendEmailNotification({
+            to: assignedUser.email,
+            subject: `📋 Nueva OT Asignada: ${workOrder.folio} - ${workOrder.cliente}`,
+            html: buildAssignEmailHTML(tech.displayName, workOrder),
+          });
+        }
+      }
     } catch {
       setError('Error al actualizar asignaciones.');
     }
