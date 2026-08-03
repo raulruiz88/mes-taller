@@ -91,3 +91,41 @@ export function getCurrentPeriod(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
+
+export function isOTUnassigned(ot: {
+  asignadoA?: string;
+  asignadoNombre?: string;
+  asignadosA?: string[];
+  asignadosNombres?: string[];
+}): boolean {
+  if (ot.asignadosA && ot.asignadosA.length > 0) return false;
+  if (ot.asignadoA && ot.asignadoA !== 'sin_asignar' && ot.asignadoA !== '') return false;
+  if (ot.asignadoNombre && ot.asignadoNombre !== 'Sin Asignar' && ot.asignadoNombre !== '') return false;
+  return true;
+}
+
+export function isOTAssignedToUser(
+  ot: {
+    asignadoA?: string;
+    asignadoNombre?: string;
+    asignadosA?: string[];
+    asignadosNombres?: string[];
+  },
+  userUid: string,
+  userDisplayName?: string
+): boolean {
+  if (ot.asignadosA && ot.asignadosA.length > 0) {
+    return ot.asignadosA.includes(userUid);
+  }
+
+  if (ot.asignadoA && ot.asignadoA !== 'sin_asignar' && ot.asignadoA !== '') {
+    return ot.asignadoA === userUid;
+  }
+
+  if (userDisplayName && ot.asignadoNombre && ot.asignadoNombre !== 'Sin Asignar' && ot.asignadoNombre !== '') {
+    const assignedNames = ot.asignadosNombres || ot.asignadoNombre.split(',').map((s) => s.trim());
+    return assignedNames.some((n) => n.toLowerCase() === userDisplayName.toLowerCase());
+  }
+
+  return false;
+}

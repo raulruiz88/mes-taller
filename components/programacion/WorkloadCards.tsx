@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import { WorkOrder, AppUser, PurchaseOrder } from '@/lib/types';
 import { User, ShoppingBag, Package, Clock, AlertTriangle, CheckCircle, PauseCircle, ArrowRight } from 'lucide-react';
 
+import { isOTAssignedToUser, isOTUnassigned } from '@/lib/utils';
+
 interface WorkloadCardsProps {
   workOrders: WorkOrder[];
   purchaseOrders: PurchaseOrder[];
@@ -49,26 +51,26 @@ export default function WorkloadCards({
     const unassigned: WorkOrder[] = [];
 
     activeOTs.forEach((ot) => {
-      // Buscar por UID o por Nombre Desnormalizado
-      let targetUid = ot.asignadoA;
-      if (!targetUid && ot.asignadoNombre) {
-        const found = allActiveUsers.find((u) => u.displayName.toLowerCase() === ot.asignadoNombre?.toLowerCase());
-        if (found) targetUid = found.uid;
-      }
-
-      if (targetUid && map[targetUid]) {
-        map[targetUid].ots.push(ot);
-        map[targetUid].totalPiezas += ot.totalPiezas;
-        map[targetUid].piezasProcesadas += ot.piezasProcesadas;
-      } else {
+      if (isOTUnassigned(ot)) {
         unassigned.push(ot);
+      } else {
+        let assignedCount = 0;
+        allActiveUsers.forEach((u) => {
+          if (isOTAssignedToUser(ot, u.uid, u.displayName)) {
+            map[u.uid].ots.push(ot);
+            map[u.uid].totalPiezas += ot.totalPiezas;
+            map[u.uid].piezasProcesadas += ot.piezasProcesadas;
+            assignedCount++;
+          }
+        });
+        if (assignedCount === 0) {
+          unassigned.push(ot);
+        }
       }
     });
 
-    // Filtrar para mostrar usuarios que tengan OTs asignadas o sean de roles operativos
-    const relevantUsers = allActiveUsers.filter(
-      (u) => map[u.uid]?.ots.length > 0 || u.role === 'tecnico' || u.role === 'produccion' || u.role === 'supervisor'
-    );
+    // Mostrar ÚNICAMENTE usuarios que tienen OTs asignadas actualmente
+    const relevantUsers = allActiveUsers.filter((u) => map[u.uid]?.ots.length > 0);
 
     return { map, unassigned, relevantUsers };
   }, [allActiveUsers, activeOTs]);

@@ -203,10 +203,17 @@ export async function asignarWorkOrder(
     if (!snap.exists()) throw new Error('OT no encontrada');
 
     const otData = snap.data();
+    const isClearing = !tecnicoUid || tecnicoUid === 'sin_asignar';
+    const finalUid = isClearing ? '' : tecnicoUid;
+    const finalNombre = isClearing ? 'Sin Asignar' : tecnicoNombre;
+    const finalUids = isClearing ? [] : [tecnicoUid];
+    const finalNombres = isClearing ? [] : [tecnicoNombre];
 
     tx.update(otRef, {
-      asignadoA: tecnicoUid,
-      asignadoNombre: tecnicoNombre,
+      asignadoA: finalUid,
+      asignadoNombre: finalNombre,
+      asignadosA: finalUids,
+      asignadosNombres: finalNombres,
       updatedAt: serverTimestamp(),
     });
 
@@ -216,13 +223,13 @@ export async function asignarWorkOrder(
       usuarioNombre: asignadoPorNombre,
       campo: 'asignadoA',
       valorAnterior: otData.asignadoNombre || 'Sin Asignar',
-      valorNuevo: tecnicoNombre,
+      valorNuevo: finalNombre,
       accion: 'field_change',
     } as any);
   });
 
   // Notificación in-app al técnico asignado
-  if (tecnicoUid) {
+  if (tecnicoUid && tecnicoUid !== 'sin_asignar') {
     try {
       const { createNotification } = await import('./notifications');
       const snap = await getDoc(otRef);
@@ -253,8 +260,9 @@ export async function asignarWorkOrderMultiple(
 
   const uids = tecnicos.map((t) => t.uid);
   const nombres = tecnicos.map((t) => t.displayName);
-  const primaryUid = uids[0] || '';
-  const primaryNombre = nombres.join(', ') || 'Sin Asignar';
+  const isClearing = uids.length === 0;
+  const primaryUid = isClearing ? '' : uids[0];
+  const primaryNombre = isClearing ? 'Sin Asignar' : nombres.join(', ');
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(otRef);

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { WorkOrder, AppUser } from '@/lib/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, isOTAssignedToUser, isOTUnassigned } from '@/lib/utils';
 import { getUrgency } from '@/lib/utils/urgency';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Calendar, Clock, AlertTriangle, User, PauseCircle, ChevronLeft, ChevronRight, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -31,7 +31,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
   const activeOTs = useMemo(() => {
     return workOrders
       .filter((o) => o.status !== 'completada' && o.status !== 'cancelada')
-      .filter((o) => filterTechUid === 'todos' || o.asignadoA === filterTechUid);
+      .filter((o) => filterTechUid === 'todos' || isOTAssignedToUser(o, filterTechUid));
   }, [workOrders, filterTechUid]);
 
   // Agrupar OTs por usuario / técnico (filtrando usuarios con 0 OTs)
@@ -39,11 +39,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
     const assignedList: { user?: AppUser; label: string; ots: WorkOrder[] }[] = [];
 
     allActiveUsers.forEach((u) => {
-      const otsOfTech = activeOTs.filter(
-        (o) =>
-          (u.uid && o.asignadoA === u.uid) ||
-          (u.displayName && o.asignadoNombre?.toLowerCase() === u.displayName.toLowerCase())
-      );
+      const otsOfTech = activeOTs.filter((o) => isOTAssignedToUser(o, u.uid, u.displayName));
       
       // Mostrar ÚNICAMENTE usuarios que tienen OTs asignadas actualmente (otsOfTech.length > 0)
       if (otsOfTech.length > 0) {
@@ -58,7 +54,7 @@ export default function GanttChart({ workOrders, users, onSelectOT }: GanttChart
     });
 
     // Fila independiente para OTs sin asignar
-    const unassignedOTs = activeOTs.filter((o) => !o.asignadoA && !o.asignadoNombre);
+    const unassignedOTs = activeOTs.filter((o) => isOTUnassigned(o));
     let unassigned: { label: string; ots: WorkOrder[] } | null = null;
     if (unassignedOTs.length > 0 && filterTechUid === 'todos') {
       unassigned = {

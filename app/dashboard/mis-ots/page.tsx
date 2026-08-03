@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { isOTAssignedToUser } from '@/lib/utils';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useWorkOrders } from '@/lib/hooks/useWorkOrders';
 import { WorkOrder } from '@/lib/types';
@@ -23,13 +24,8 @@ export default function MisOTsPage() {
       return true;
     }
 
-    return (
-      (userData?.uid && (o.asignadoA === userData.uid || o.asignadosA?.includes(userData.uid))) ||
-      (userData?.displayName && (
-        o.asignadoNombre?.toLowerCase() === userData.displayName.toLowerCase() ||
-        o.asignadosNombres?.some((n) => n.toLowerCase() === userData.displayName?.toLowerCase())
-      ))
-    );
+    if (!userData) return false;
+    return isOTAssignedToUser(o, userData.uid, userData.displayName);
   });
 
   return (
