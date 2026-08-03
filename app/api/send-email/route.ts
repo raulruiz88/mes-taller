@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const senderName = fromName || 'MES Taller Lions';
-    const fromAddress = `${senderName} <notificaciones@lions.mx>`;
+    const fromAddress = `${senderName} <onboarding@resend.dev>`;
 
     const recipients = Array.isArray(to) ? to.filter(Boolean) : [to];
     if (recipients.length === 0) {
