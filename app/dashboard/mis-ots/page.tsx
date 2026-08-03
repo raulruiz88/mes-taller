@@ -19,8 +19,8 @@ export default function MisOTsPage() {
   const myWorkOrders = workOrders.filter((o) => {
     if (o.status === 'completada' || o.status === 'cancelada') return false;
 
-    // Si el usuario es de Compras o Admin, incluir OTs que están esperando Materia Prima
-    if ((userData?.role === 'compras' || userData?.role === 'admin') && o.status === 'compras_mp') {
+    // Si el usuario es del rol exclusivo de Compras (no admin), incluir OTs que están esperando Materia Prima
+    if (userData?.role === 'compras' && o.status === 'compras_mp') {
       return true;
     }
 
