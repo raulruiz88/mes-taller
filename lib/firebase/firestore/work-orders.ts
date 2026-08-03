@@ -253,7 +253,8 @@ export async function asignarWorkOrderMultiple(
   otId: string,
   tecnicos: { uid: string; displayName: string }[],
   asignadoPorUid: string,
-  asignadoPorNombre: string
+  asignadoPorNombre: string,
+  motivoCambio?: string
 ): Promise<void> {
   const otRef = doc(db, COL, otId);
   const changeRef = doc(collection(db, COL, otId, 'changelog'));
@@ -269,6 +270,7 @@ export async function asignarWorkOrderMultiple(
     if (!snap.exists()) throw new Error('OT no encontrada');
 
     const otData = snap.data();
+    const anteriorNombre = otData.asignadoNombre || 'Sin Asignar';
 
     tx.update(otRef, {
       asignadoA: primaryUid,
@@ -278,13 +280,17 @@ export async function asignarWorkOrderMultiple(
       updatedAt: serverTimestamp(),
     });
 
+    const nuevoValorTexto = motivoCambio?.trim()
+      ? `${primaryNombre} (Motivo: ${motivoCambio.trim()})`
+      : primaryNombre;
+
     tx.set(changeRef, {
       timestamp: serverTimestamp(),
       usuarioUid: asignadoPorUid,
       usuarioNombre: asignadoPorNombre,
-      campo: 'asignadosA',
-      valorAnterior: otData.asignadoNombre || 'Sin Asignar',
-      valorNuevo: primaryNombre,
+      campo: 'asignación',
+      valorAnterior: anteriorNombre,
+      valorNuevo: nuevoValorTexto,
       accion: 'field_change',
     } as any);
   });
