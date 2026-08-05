@@ -4,7 +4,7 @@ import { WorkOrder } from '@/lib/types';
 import { useWorkOrders } from '@/lib/hooks/useWorkOrders';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getUrgency } from '@/lib/utils/urgency';
-import { AlertTriangle, Clock, CheckCircle, Package, PauseCircle, User } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Package, PauseCircle, Wrench } from 'lucide-react';
 
 interface KPICardsProps {
   activeFilter?: string | null;
@@ -31,6 +31,10 @@ export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps
 
   const urgentes = active.filter(
     (o) => o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'amarillo'
+  ).length;
+
+  const enProduccion = active.filter(
+    (o) => o.status === 'produccion_interna'
   ).length;
 
   const enPausas = active.filter(
@@ -70,6 +74,16 @@ export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps
       pulse: false,
     },
     {
+      id: 'produccion',
+      label: 'En Producción ⚙️',
+      value: enProduccion,
+      icon: Wrench,
+      color: 'from-cyan-500/20 to-cyan-600/10 border-cyan-500/30',
+      iconColor: 'text-cyan-400',
+      valueColor: 'text-cyan-400',
+      pulse: false,
+    },
+    {
       id: 'pausa',
       label: 'En Pausa ⏸️',
       value: enPausas,
@@ -102,7 +116,7 @@ export default function KPICards({ activeFilter, onSelectFilter }: KPICardsProps
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       {cards.map((card) => {
         const isSelected = activeFilter === card.id;
         return (

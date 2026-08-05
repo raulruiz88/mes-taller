@@ -6,6 +6,15 @@ import KPICards from '@/components/dashboard/KPICards';
 import OTTable from '@/components/dashboard/OTTable';
 import { LayoutDashboard } from 'lucide-react';
 
+const CARD_FILTER_LABELS: Record<string, string> = {
+  criticas: 'OTs Críticas',
+  urgentes: 'OTs Urgentes',
+  produccion: 'En Producción ⚙️',
+  pausa: 'En Pausa ⏸️',
+  maquila: 'Proceso Externo',
+  envio: 'Listas p/ Entregar',
+};
+
 export default function DashboardPage() {
   const { workOrders, loading } = useWorkOrders();
   const [cardFilter, setCardFilter] = useState<string | null>(null);
@@ -39,7 +48,7 @@ export default function DashboardPage() {
               onClick={() => setCardFilter(null)}
               className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 font-medium hover:bg-blue-500/30 transition-all flex items-center gap-1.5"
             >
-              <span>Filtro activo: <strong>{cardFilter}</strong></span>
+              <span>Filtro activo: <strong>{CARD_FILTER_LABELS[cardFilter] || cardFilter}</strong></span>
               <span className="font-bold text-slate-400 hover:text-white">✕ Borrar</span>
             </button>
           )}

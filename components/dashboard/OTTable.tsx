@@ -60,6 +60,7 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
       }
       if (cardFilter === 'criticas') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'rojo';
       if (cardFilter === 'urgentes') return o.status !== 'en_pausa' && getUrgency(o.fechaEntrega, o.status) === 'amarillo';
+      if (cardFilter === 'produccion') return o.status === 'produccion_interna';
       if (cardFilter === 'pausa') return o.status === 'en_pausa' || Boolean(o.esPausada);
       if (cardFilter === 'maquila') return o.status === 'maquila_externa' || Boolean(o.esMaquilaDirecta) || o.operaciones?.some((op) => op.centroTrabajo?.toLowerCase().includes('maquila'));
       if (cardFilter === 'envio') return o.status === 'calidad_envio';
