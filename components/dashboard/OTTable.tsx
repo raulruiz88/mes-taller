@@ -7,7 +7,7 @@ import { getUrgency } from '@/lib/utils/urgency';
 import UrgencyBadge from './UrgencyBadge';
 import ProgressBar from './ProgressBar';
 import OTDrawer from './OTDrawer';
-import { ChevronRight, Filter, Search, History, Zap, PauseCircle, User } from 'lucide-react';
+import { ChevronRight, Filter, Search, History, Zap, PauseCircle, User, Building2 } from 'lucide-react';
 
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -34,8 +34,22 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
   const { isAdmin, userData } = useAuth();
   const [selectedOT, setSelectedOT] = useState<WorkOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<OTStatus | 'todas'>('todas');
+  const [clientFilter, setClientFilter] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+
+  // Lista dinámica de clientes ordenados alfabéticamente
+  const clientOptions = useMemo(() => {
+    const clientsSet = new Set<string>();
+    workOrders.forEach((o) => {
+      if (o.cliente && o.cliente.trim() !== '') {
+        clientsSet.add(o.cliente.trim());
+      }
+    });
+    return Array.from(clientsSet).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    );
+  }, [workOrders]);
 
   // Separar activas vs historial
   const activeOrders = useMemo(
@@ -67,6 +81,7 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
       return true;
     })
     .filter((o) => statusFilter === 'todas' || o.status === statusFilter)
+    .filter((o) => clientFilter === 'todos' || o.cliente?.toLowerCase() === clientFilter.toLowerCase())
     .filter(
       (o) =>
         !searchQuery ||
@@ -94,7 +109,7 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
         <div className="flex bg-slate-800/60 border border-slate-700 rounded-xl p-1 gap-1 self-start sm:self-auto">
           <button
             id="ot-tab-activas"
-            onClick={() => { setShowHistory(false); setStatusFilter('todas'); }}
+            onClick={() => { setShowHistory(false); setStatusFilter('todas'); setClientFilter('todos'); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               !showHistory
                 ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
@@ -111,7 +126,7 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
           </button>
           <button
             id="ot-tab-historial"
-            onClick={() => { setShowHistory(true); setStatusFilter('todas'); }}
+            onClick={() => { setShowHistory(true); setStatusFilter('todas'); setClientFilter('todos'); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               showHistory
                 ? 'bg-slate-600 text-white shadow-sm'
@@ -128,8 +143,8 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
           </button>
         </div>
 
-        {/* Search + Status filter */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* Search + Status filter + Client filter */}
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           <div className="relative flex-1 sm:w-48">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
@@ -142,6 +157,25 @@ export default function OTTable({ workOrders, loading, cardFilter, onClearCardFi
             />
           </div>
 
+          {/* Filtro por Cliente (Ordenado Alfabéticamente) */}
+          <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700 rounded-xl px-2 py-1 shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <select
+              id="ot-client-filter"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="bg-transparent text-xs text-slate-300 focus:outline-none cursor-pointer max-w-[140px] truncate"
+            >
+              <option value="todos" className="bg-slate-900 text-white">Todos los Clientes</option>
+              {clientOptions.map((client) => (
+                <option key={client} value={client} className="bg-slate-900 text-white">
+                  {client}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por Estado */}
           <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700 rounded-xl px-2 py-1 shrink-0">
             <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <select
