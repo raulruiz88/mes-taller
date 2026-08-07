@@ -20,6 +20,7 @@ import {
   Building2,
   Calendar,
   UserCheck,
+  Truck,
   X,
 } from 'lucide-react';
 
@@ -47,6 +48,12 @@ const navItems = [
     icon: ClipboardList,
     label: 'Órdenes de Compra',
     roles: ['admin', 'produccion', 'compras', 'supervisor'],
+  },
+  {
+    href: '/dashboard/remisiones',
+    icon: Truck,
+    label: 'Remisiones & Entregas',
+    roles: ['admin', 'produccion', 'compras', 'supervisor', 'tecnico'],
   },
   {
     href: '/dashboard/compras',

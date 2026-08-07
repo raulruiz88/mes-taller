@@ -104,6 +104,7 @@ export interface WorkOrder {
   descripcion: string;
   totalPiezas: number;
   piezasProcesadas: number;
+  piezasEntregadas?: number; // Piezas entregadas al cliente vía remisiones
   status: OTStatus;
   prioridad: OTPrioridad;
   fechaInicio: Timestamp;
@@ -128,6 +129,47 @@ export interface WorkOrder {
   statusAnterior?: OTStatus;
   motivoPausa?: string;
   fechaPausa?: Timestamp;
+}
+
+// ─────────────────────────────────────────────
+// REMISIONES / ENTREGAS PARCIALES (remisiones)
+// ─────────────────────────────────────────────
+
+export interface RemisionItem {
+  otId: string;
+  otFolio: string;
+  descripcion: string;
+  piezasEntregadas: number;
+  totalPiezas: number;
+}
+
+export interface Remision {
+  id: string;
+  folio: string;               // ej: "REM-2026-001"
+  ocId: string;
+  ocFolio: string;
+  cliente: string;
+  fechaEntrega: Timestamp;
+  recibioPor: string;          // Nombre de quien recibe en cliente
+  notas?: string;
+  creadoPor: string;           // uid del creador
+  creadoPorNombre?: string;
+  createdAt: Timestamp;
+  items: RemisionItem[];
+}
+
+export interface RemisionFormValues {
+  ocId: string;
+  fechaEntrega: Date;
+  recibioPor: string;
+  notas?: string;
+  items: {
+    otId: string;
+    otFolio: string;
+    descripcion: string;
+    piezasEntregadas: number;
+    totalPiezas: number;
+  }[];
 }
 
 // Subcolección: work_orders/{otId}/changelog

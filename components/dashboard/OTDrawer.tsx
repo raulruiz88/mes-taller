@@ -1056,19 +1056,20 @@ export default function OTDrawer({ workOrder, onClose, onUpdate }: OTDrawerProps
           </div>
 
           {/* Details grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { icon: Hash, label: 'Total Piezas', value: workOrder.totalPiezas },
-              { icon: Package, label: 'Procesadas', value: workOrder.piezasProcesadas },
-              { icon: Clock, label: 'Fecha Entrega', value: formatDate(workOrder.fechaEntrega) },
-              { icon: FileText, label: 'Material', value: workOrder.material || '—' },
+              { icon: Hash, label: 'Total Piezas', value: workOrder.totalPiezas, highlight: false },
+              { icon: Package, label: 'Procesadas (Taller)', value: `${workOrder.piezasProcesadas} / ${workOrder.totalPiezas}`, highlight: false },
+              { icon: Truck, label: 'Entregadas (Cliente)', value: `${workOrder.piezasEntregadas || 0} / ${workOrder.totalPiezas}`, highlight: Boolean(workOrder.piezasEntregadas) },
+              { icon: Clock, label: 'Fecha Entrega', value: formatDate(workOrder.fechaEntrega), highlight: false },
+              { icon: FileText, label: 'Material', value: workOrder.material || '—', highlight: false },
             ].map((item) => (
               <div key={item.label} className="bg-slate-800/50 rounded-xl p-3">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <item.icon className="w-3.5 h-3.5 text-slate-500" />
-                  <p className="text-xs text-slate-500">{item.label}</p>
+                  <item.icon className={`w-3.5 h-3.5 ${item.highlight ? 'text-emerald-400' : 'text-slate-500'}`} />
+                  <p className="text-[11px] text-slate-400 font-medium">{item.label}</p>
                 </div>
-                <p className="text-sm font-semibold text-white">{item.value}</p>
+                <p className={`text-sm font-semibold ${item.highlight ? 'text-emerald-400 font-bold' : 'text-white'}`}>{item.value}</p>
               </div>
             ))}
           </div>
