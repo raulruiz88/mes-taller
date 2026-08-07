@@ -166,6 +166,88 @@ export function subscribeRemisiones(callback: (remisiones: Remision[]) => void) 
   });
 }
 
-export async function deleteRemision(remisionId: string): Promise<void> {
-  await deleteDoc(doc(db, COL, remisionId));
+export async function deleteRemision(
+  remisionId: string,
+  uid?: string,
+  userName?: string
+): Promise<void> {
+  const remisionRef = doc(db, COL, remisionId);
+  const remSnap = await getDoc(remisionRef);
+  if (!remSnap.exists()) return;
+
+  const remData = remSnap.data() as Remision;
+
+  // Revertir piezas en las OTs involucradas
+  for (const item of remData.items || []) {
+    if (!item.otId || item.piezasEntregadas <= 0) continue;
+
+    const otRef = doc(db, 'work_orders', item.otId);
+    const otSnap = await getDoc(otRef);
+    if (!otSnap.exists()) continue;
+
+    const otData = otSnap.data() as WorkOrder;
+    const previousEntregadas = otData.piezasEntregadas || 0;
+    const restoredEntregadas = Math.max(0, previousEntregadas - item.piezasEntregadas);
+
+    const updates: Record<string, unknown> = {
+      piezasEntregadas: restoredEntregadas,
+      updatedAt: serverTimestamp(),
+    };
+
+    // Si estaba completada y ahora baja del total, regresar a produccion_interna
+    if (otData.status === 'completada' && restoredEntregadas < otData.totalPiezas) {
+      updates.status = 'produccion_interna';
+
+      await addDoc(collection(db, 'work_orders', item.otId, 'changelog'), {
+        timestamp: serverTimestamp(),
+        usuarioUid: uid || '',
+        usuarioNombre: userName || 'Sistema',
+        campo: 'status',
+        valorAnterior: 'completada',
+        valorNuevo: 'produccion_interna',
+        accion: 'status_change',
+        motivo: `Reversión por eliminación de Remisión ${remData.folio}`,
+      });
+    }
+
+    await updateDoc(otRef, updates);
+
+    await addDoc(collection(db, 'work_orders', item.otId, 'changelog'), {
+      timestamp: serverTimestamp(),
+      usuarioUid: uid || '',
+      usuarioNombre: userName || 'Sistema',
+      campo: 'piezasEntregadas',
+      valorAnterior: previousEntregadas,
+      valorNuevo: restoredEntregadas,
+      accion: 'nota',
+      motivo: `Se restaron ${item.piezasEntregadas} pieza(s) debido a la eliminación de la Remisión ${remData.folio}`,
+    });
+  }
+
+  // Recalcular contador de OTs en la OC
+  if (remData.ocId) {
+    try {
+      const ocRef = doc(db, 'purchase_orders', remData.ocId);
+      const otsQuery = query(collection(db, 'work_orders'), where('ocId', '==', remData.ocId));
+      const otsSnap = await getDocs(otsQuery);
+      const allOTs = otsSnap.docs.map((d) => d.data());
+      const completadasCount = allOTs.filter((o) => o.status === 'completada').length;
+      const totalCount = allOTs.length;
+
+      const ocUpdates: Record<string, unknown> = {
+        otCompletadas: completadasCount,
+      };
+
+      if (totalCount > 0 && completadasCount < totalCount) {
+        ocUpdates.status = 'activa';
+      }
+
+      await updateDoc(ocRef, ocUpdates);
+    } catch {
+      // Ignorar errores menores
+    }
+  }
+
+  // Finalmente eliminar documento de la remisión
+  await deleteDoc(remisionRef);
 }

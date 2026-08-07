@@ -25,7 +25,7 @@ export default function RemisionesPage() {
   const { remisiones, loading } = useRemisiones();
   const { purchaseOrders } = usePurchaseOrders();
   const { workOrders } = useWorkOrders();
-  const { isAdmin } = useAuth();
+  const { userData, isAdmin } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +79,7 @@ export default function RemisionesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteRemision(id);
+      await deleteRemision(id, userData?.uid, userData?.displayName || 'Usuario');
       setDeletingId(null);
     } catch {
       alert('Error al eliminar la remisión.');
